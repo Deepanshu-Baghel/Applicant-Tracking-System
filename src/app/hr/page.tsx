@@ -25,10 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { extractTextFromFile } from "@/utils/resumeParser";
 import { CandidateAnalysis, analyzeCandidate, toCsv } from "@/utils/hrAnalyzer";
 import {
-  consumeCredits,
-  consumeCreditsOnServer,
   getCreditWallet,
-  setCreditWallet,
   syncCreditWalletFromServer,
 } from "@/utils/creditWallet";
 import { fetchSubscriptionStatus } from "@/utils/subscriptionClient";
@@ -435,45 +432,17 @@ export default function HrToolPage() {
           : "Pro subscription active: advanced HR insights unlocked with no credit deduction."
       );
     } else if (session?.access_token) {
-      const consumeResult = await consumeCreditsOnServer({
-        ownerId: creditOwnerId,
-        accessToken: session.access_token,
-        amount: 2,
-        feature: "hr_pro_batch",
-        metadata: {
-          resume_count: files.length,
-          has_job_description: Boolean(jdText.trim()),
-        },
-      });
-
-      proEnabledForBatch = consumeResult.ok;
+      proEnabledForBatch = false;
       premiumEnabledForBatch = false;
-      const syncedWallet = setCreditWallet(creditOwnerId, consumeResult.wallet);
-      setCreditBalance(syncedWallet.balance);
       setRunNotice(
-        consumeResult.ok
-          ? "Pro HR insights unlocked for this batch. 2 credits consumed from wallet."
-          : consumeResult.message ||
-              "Insufficient credits for Pro HR insights. Batch ran in standard mode; buy credits or upgrade subscription."
+        "Free tier has basic access only. Upgrade to Pro or Premium to unlock HR Pro insights."
       );
     } else {
-      const localBalance = getCreditWallet(creditOwnerId).balance;
-      if (localBalance >= 2) {
-        const consumeResult = consumeCredits(creditOwnerId, 2);
-        proEnabledForBatch = consumeResult.ok;
-        premiumEnabledForBatch = false;
-        setCreditBalance(consumeResult.wallet.balance);
-        setRunNotice(
-          "Pro HR insights unlocked in demo mode. 2 credits consumed from local wallet."
-        );
-      } else {
-        proEnabledForBatch = false;
-        premiumEnabledForBatch = false;
-        setCreditBalance(localBalance);
-        setRunNotice(
-          "Insufficient credits for Pro HR insights. Batch ran in standard mode; buy credits to unlock advanced HR modules."
-        );
-      }
+      proEnabledForBatch = false;
+      premiumEnabledForBatch = false;
+      setRunNotice(
+        "Free tier has basic access only. Upgrade to Pro or Premium to unlock HR Pro insights."
+      );
     }
 
     setProUnlockedForBatch(proEnabledForBatch);
@@ -577,7 +546,7 @@ export default function HrToolPage() {
           <CreditPlansCard
             ownerId={creditOwnerId}
             title="Recruiter Wallet"
-            subtitle="Free tier can unlock Pro recruiter modules with 2 credits per batch. Pro/Premium subscriptions are unlimited."
+            subtitle="Wallet balance is visible here. Pro recruiter modules require Pro/Premium subscription."
             onWalletChange={(wallet) => setCreditBalance(wallet.balance)}
           />
 
@@ -809,12 +778,12 @@ export default function HrToolPage() {
                   </div>
                 </div>
                 <p className="text-sm text-amber-700 mb-4">
-                  Wallet balance: {creditBalance} credits. Free-tier Pro unlock requires 2 credits per batch run.
+                  Wallet balance: {creditBalance} credits. Free tier cannot unlock Pro recruiter modules.
                 </p>
                 <CreditPlansCard
                   ownerId={creditOwnerId}
                   title="Unlock Recruiter Pro"
-                  subtitle="Use credits in Free tier or upgrade to Pro/Premium for unlimited recruiter intelligence."
+                  subtitle="Upgrade to Pro/Premium for advanced recruiter intelligence modules."
                   onWalletChange={(wallet) => setCreditBalance(wallet.balance)}
                 />
               </section>

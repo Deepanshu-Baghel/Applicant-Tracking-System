@@ -237,7 +237,7 @@ export default function UploadPage() {
 
         <div className="glass-card p-4 border-primary-500/20 bg-primary-500/5 mb-8">
           <p className="text-sm text-foreground font-semibold mb-1">This run can unlock:</p>
-          <p className="text-xs text-muted">Pro: ATS simulator, recruiter eye-path, variants, hidden red-flags. Premium: interview predictor, offer copilot, application pack, career graph, reachability, and skill ROI planner.</p>
+          <p className="text-xs text-muted">Pro: ATS simulator, recruiter eye-path, variants, hidden red-flags. Premium: interview predictor, offer copilot, application pack, career graph, reachability, and skill ROI planner. Free tier has basic access only.</p>
         </div>
 
         <div className="space-y-8">
@@ -271,7 +271,7 @@ export default function UploadPage() {
             <CreditPlansCard
               ownerId={creditOwnerId}
               title="Credit Wallet (Free Tier)"
-              subtitle="Free tier uses 1 credit per Pro analysis unlock. Pro/Premium subscriptions are unlimited."
+              subtitle="Wallet balance is shown here. Pro and Premium modules require active subscription tier."
               onWalletChange={(wallet) => setCreditBalance(wallet.balance)}
             />
           </div>
@@ -281,7 +281,7 @@ export default function UploadPage() {
               Current balance: <span className="font-semibold text-primary-600">{creditBalance} credits</span>
             </p>
             <p className="text-xs text-muted mt-1">
-              Pro modules: ATS simulator, recruiter eye-path, variants, and hidden red-flags. Premium adds interview predictor, negotiation copilot, application pack, career graph, reachability score, and skill ROI planner.
+              Pro modules: ATS simulator, recruiter eye-path, variants, and hidden red-flags. Premium adds interview predictor, negotiation copilot, application pack, career graph, reachability score, and skill ROI planner. Free tier cannot access Pro/Premium modules.
             </p>
           </div>
 

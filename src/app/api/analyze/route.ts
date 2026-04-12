@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { detectMissingCoreSections, getExampleResumeTextTemplate } from '@/utils/resumeQuality';
-import { FEATURE_CREDIT_COST } from '@/lib/creditPlans';
-import { consumeCreditsServer } from '@/lib/creditsServer';
 import {
   getTierFeatureAccess,
   type SubscriptionTier,
@@ -1684,13 +1682,13 @@ export async function POST(req: Request) {
         if (!authConfigured || !authenticatedUserId) {
           return {
             tier: authConfigured ? 'free' : subscriptionTier,
-            proUnlocked: !authConfigured,
-            premiumUnlocked: !authConfigured,
-            priorityModel: !authConfigured,
+            proUnlocked: false,
+            premiumUnlocked: false,
+            priorityModel: false,
             remainingCredits: null,
             premiumMessage: authConfigured
-              ? 'Pro insights are locked. Please log in and ensure credits are available.'
-              : 'All subscription features are enabled in local development mode.',
+              ? 'Pro insights are locked. Please log in with an active Pro or Premium subscription.'
+              : 'Pro insights are locked. Configure auth and use a Pro or Premium subscription.',
           };
         }
 
@@ -1708,35 +1706,15 @@ export async function POST(req: Request) {
           };
         }
 
-        try {
-          const consumeResult = await consumeCreditsServer({
-            userId: authenticatedUserId,
-            amount: FEATURE_CREDIT_COST.resumePremiumAnalysis,
-            feature: 'resume_pro_analysis',
-            metadata: {
-              has_job_description: Boolean(jobDescription.trim()),
-            },
-          });
-
-          return {
-            tier: 'free' as SubscriptionTier,
-            proUnlocked: consumeResult.ok,
-            premiumUnlocked: false,
-            priorityModel: false,
-            remainingCredits: consumeResult.wallet.balance,
-            premiumMessage: consumeResult.message,
-          };
-        } catch (error: unknown) {
-          const message = error instanceof Error ? error.message : 'Credit system is not configured yet.';
-          return {
-            tier: 'free' as SubscriptionTier,
-            proUnlocked: false,
-            premiumUnlocked: false,
-            priorityModel: false,
-            remainingCredits: null,
-            premiumMessage: message,
-          };
-        }
+        return {
+          tier: 'free' as SubscriptionTier,
+          proUnlocked: false,
+          premiumUnlocked: false,
+          priorityModel: false,
+          remainingCredits: null,
+          premiumMessage:
+            'Free tier has basic access only. Upgrade to Pro or Premium to unlock advanced modules.',
+        };
       })();
 
       return accessResolutionPromise;
