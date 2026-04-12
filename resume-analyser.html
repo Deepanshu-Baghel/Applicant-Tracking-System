@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ResumeIQ — AI Resume Analyser</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --teal:#0D9E75;--teal-dark:#085041;--teal-light:#E1F5EE;--teal-mid:#1D9E75;
+  --ink:#0E1A14;--ink2:#344038;--muted:#6B7A72;--pale:#F4F7F5;
+  --border:#D8E4DF;--white:#FFFFFF;
+  --amber:#BA7517;--amber-bg:#FAEEDA;
+  --red:#A32D2D;--red-bg:#FCEBEB;
+  --ff-head:'DM Serif Display',Georgia,serif;
+  --ff-body:'DM Sans',sans-serif;
+  --radius:12px;--radius-sm:8px;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 4px 16px rgba(0,0,0,.06);
+}
+html{scroll-behavior:smooth}
+body{font-family:var(--ff-body);color:var(--ink);background:var(--white);overflow-x:hidden}
+
+/* ─── NAV ─── */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 2.5rem;height:64px;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
+.nav-logo{font-family:var(--ff-head);font-size:22px;color:var(--teal-dark);letter-spacing:-.3px}
+.nav-logo span{color:var(--teal)}
+.nav-links{display:flex;align-items:center;gap:1.5rem}
+.nav-link{font-size:14px;color:var(--muted);text-decoration:none;transition:color .2s}
+.nav-link:hover{color:var(--ink)}
+.nav-cta{background:var(--teal);color:#fff;border:none;padding:8px 20px;border-radius:40px;font-size:14px;font-weight:500;cursor:pointer;transition:background .2s,transform .1s;font-family:var(--ff-body)}
+.nav-cta:hover{background:var(--teal-dark)}
+.nav-cta:active{transform:scale(.98)}
+
+/* ─── HERO ─── */
+#landing{display:block}
+#app-section{display:none}
+
+.hero{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:100px 2rem 4rem;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;z-index:0}
+.hero-bg-circle{position:absolute;border-radius:50%;filter:blur(80px);opacity:.18}
+.c1{width:500px;height:500px;background:#0D9E75;top:-100px;right:-50px}
+.c2{width:350px;height:350px;background:#1D9E75;bottom:-50px;left:-80px}
+.c3{width:200px;height:200px;background:#085041;top:40%;left:30%}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(13,158,117,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(13,158,117,.06) 1px,transparent 1px);background-size:40px 40px;z-index:0}
+
+.hero-inner{position:relative;z-index:1;text-align:center;max-width:760px}
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:var(--teal-light);color:var(--teal-dark);font-size:13px;font-weight:500;padding:6px 16px;border-radius:40px;margin-bottom:1.5rem;border:1px solid rgba(13,158,117,.2)}
+.hero-badge-dot{width:7px;height:7px;background:var(--teal);border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.hero-h1{font-family:var(--ff-head);font-size:clamp(42px,6vw,72px);line-height:1.1;color:var(--ink);margin-bottom:1.25rem;letter-spacing:-.5px}
+.hero-h1 em{color:var(--teal);font-style:italic}
+.hero-sub{font-size:18px;color:var(--muted);line-height:1.65;max-width:520px;margin:0 auto 2.5rem}
+.hero-btns{display:flex;gap:1rem;justify-content:center;flex-wrap:wrap}
+.btn-primary{background:var(--teal);color:#fff;border:none;padding:14px 32px;border-radius:40px;font-size:16px;font-weight:500;cursor:pointer;transition:all .2s;font-family:var(--ff-body);display:inline-flex;align-items:center;gap:8px}
+.btn-primary:hover{background:var(--teal-dark);transform:translateY(-1px);box-shadow:0 8px 24px rgba(13,158,117,.3)}
+.btn-outline{background:transparent;color:var(--ink);border:1.5px solid var(--border);padding:14px 32px;border-radius:40px;font-size:16px;font-weight:500;cursor:pointer;transition:all .2s;font-family:var(--ff-body)}
+.btn-outline:hover{border-color:var(--teal);color:var(--teal)}
+
+/* Features strip */
+.features{padding:6rem 2rem;background:var(--pale)}
+.features-inner{max-width:1100px;margin:0 auto}
+.section-tag{font-size:12px;font-weight:600;letter-spacing:1.5px;color:var(--teal);text-transform:uppercase;margin-bottom:.75rem}
+.section-h{font-family:var(--ff-head);font-size:clamp(28px,4vw,44px);color:var(--ink);line-height:1.2;margin-bottom:3rem}
+.features-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1.5rem}
+.feat-card{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.75rem;transition:box-shadow .2s,transform .2s}
+.feat-card:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.feat-icon{width:44px;height:44px;border-radius:var(--radius-sm);background:var(--teal-light);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:1rem}
+.feat-title{font-size:16px;font-weight:600;color:var(--ink);margin-bottom:.5rem}
+.feat-desc{font-size:14px;color:var(--muted);line-height:1.6}
+.feat-badge{display:inline-block;font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;background:var(--amber-bg);color:var(--amber);margin-top:.75rem}
+
+/* Steps */
+.how{padding:6rem 2rem;background:var(--white)}
+.how-inner{max-width:900px;margin:0 auto;text-align:center}
+.steps{display:flex;gap:0;margin-top:3rem;position:relative}
+.steps::before{content:'';position:absolute;top:28px;left:10%;right:10%;height:2px;background:linear-gradient(90deg,var(--teal-light),var(--teal),var(--teal-light));z-index:0}
+.step{flex:1;display:flex;flex-direction:column;align-items:center;gap:.75rem;position:relative;z-index:1;padding:0 1rem}
+.step-num{width:56px;height:56px;border-radius:50%;background:var(--teal);color:#fff;font-family:var(--ff-head);font-size:22px;display:flex;align-items:center;justify-content:center;border:3px solid var(--white);box-shadow:0 0 0 2px var(--teal)}
+.step-label{font-size:13px;color:var(--ink2);font-weight:500;text-align:center;line-height:1.4}
+
+/* Footer */
+.footer{padding:2.5rem 2rem;border-top:1px solid var(--border);text-align:center;font-size:13px;color:var(--muted)}
+
+/* ─── APP SECTION ─── */
+#app-section{padding:80px 0 0;min-height:100vh;background:var(--pale)}
+.app-wrap{max-width:900px;margin:0 auto;padding:2rem 1.5rem}
+
+/* Auth Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(14,26,20,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--white);border-radius:var(--radius);padding:2.25rem;width:100%;max-width:420px;box-shadow:0 20px 60px rgba(0,0,0,.15);transform:translateY(20px);transition:transform .25s}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-logo{font-family:var(--ff-head);font-size:24px;color:var(--teal-dark);margin-bottom:.25rem}
+.modal-logo span{color:var(--teal)}
+.modal-sub{font-size:13px;color:var(--muted);margin-bottom:1.75rem}
+.modal-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:1.75rem}
+.modal-tab{flex:1;padding:9px;font-size:14px;font-weight:500;border:none;background:transparent;cursor:pointer;color:var(--muted);transition:all .2s;font-family:var(--ff-body)}
+.modal-tab.active{background:var(--teal);color:#fff}
+.form-group{margin-bottom:1.1rem}
+.form-label{font-size:12px;font-weight:500;color:var(--ink2);margin-bottom:5px;display:block;letter-spacing:.2px}
+.form-input{width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:14px;font-family:var(--ff-body);color:var(--ink);outline:none;transition:border-color .2s;background:var(--white)}
+.form-input:focus{border-color:var(--teal)}
+.form-btn{width:100%;padding:12px;background:var(--teal);color:#fff;border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:500;cursor:pointer;font-family:var(--ff-body);margin-top:.5rem;transition:background .2s}
+.form-btn:hover{background:var(--teal-dark)}
+.modal-close{position:absolute;top:14px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1}
+
+/* Upload area */
+.upload-zone{border:2px dashed var(--border);border-radius:var(--radius);padding:3rem 2rem;text-align:center;cursor:pointer;transition:all .25s;background:var(--white);position:relative}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--teal);background:var(--teal-light)}
+.upload-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:36px;margin-bottom:1rem}
+.upload-title{font-size:16px;font-weight:500;color:var(--ink);margin-bottom:.4rem}
+.upload-hint{font-size:13px;color:var(--muted)}
+.upload-hint b{color:var(--teal)}
+
+.or-divider{display:flex;align-items:center;gap:1rem;margin:1.25rem 0;color:var(--muted);font-size:13px}
+.or-divider::before,.or-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.paste-area{width:100%;min-height:140px;resize:vertical;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px;font-family:var(--ff-body);font-size:14px;color:var(--ink);outline:none;transition:border-color .2s;background:var(--white)}
+.paste-area:focus{border-color:var(--teal)}
+
+.file-preview{background:var(--teal-light);border:1px solid rgba(13,158,117,.2);border-radius:var(--radius-sm);padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:1rem}
+.file-preview-icon{font-size:24px}
+.file-preview-name{font-size:14px;font-weight:500;color:var(--teal-dark);flex:1}
+.file-preview-remove{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1}
+.file-preview-remove:hover{color:var(--red)}
+
+/* Cards */
+.card-box{background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:1.5rem;margin-bottom:1rem;box-shadow:var(--shadow)}
+.card-title{font-size:14px;font-weight:600;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:1rem}
+.analyse-main-btn{width:100%;padding:15px;background:var(--teal);color:#fff;border:none;border-radius:var(--radius-sm);font-size:16px;font-weight:500;cursor:pointer;font-family:var(--ff-head);letter-spacing:.3px;transition:all .2s;margin-top:.5rem}
+.analyse-main-btn:hover:not(:disabled){background:var(--teal-dark);transform:translateY(-1px)}
+.analyse-main-btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* Loader */
+.loader-wrap{text-align:center;padding:3rem 1rem}
+.loader-spinner{width:44px;height:44px;border:3px solid var(--teal-light);border-top-color:var(--teal);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 1.25rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader-msg{font-size:15px;color:var(--muted)}
+
+/* Results */
+.results-wrap{display:none}
+.results-wrap.show{display:block}
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:1.25rem}
+@media(max-width:600px){.metrics-row{grid-template-columns:repeat(2,1fr)}}
+.metric-box{background:var(--white);border:1px solid var(--border);border-radius:var(--radius-sm);padding:1rem;text-align:center}
+.metric-val{font-family:var(--ff-head);font-size:28px;color:var(--ink)}
+.metric-lbl{font-size:12px;color:var(--muted);margin-top:3px}
+
+.bar-item{margin-bottom:.85rem}
+.bar-top{display:flex;justify-content:space-between;font-size:13px;color:var(--ink2);margin-bottom:5px}
+.bar-bg{height:8px;background:var(--pale);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width 1.2s ease}
+
+.salary-card{background:var(--teal-dark);color:#fff;border-radius:var(--radius);padding:1.5rem 2rem;margin-bottom:1rem;position:relative;overflow:hidden}
+.salary-card::after{content:'₹';position:absolute;right:-10px;top:-20px;font-family:var(--ff-head);font-size:140px;opacity:.07;color:#fff}
+.salary-eyebrow{font-size:11px;font-weight:600;letter-spacing:1.5px;opacity:.7;text-transform:uppercase;margin-bottom:.4rem}
+.salary-range-display{font-family:var(--ff-head);font-size:clamp(26px,4vw,40px);margin-bottom:.5rem}
+.salary-rationale{font-size:13px;opacity:.8;line-height:1.6;margin-bottom:1rem}
+.nego-tips{list-style:none;display:flex;flex-direction:column;gap:6px}
+.nego-tips li{font-size:13px;opacity:.85;padding-left:18px;position:relative;line-height:1.5}
+.nego-tips li::before{content:'→';position:absolute;left:0;opacity:.6}
+
+.skills-grid{display:flex;flex-wrap:wrap;gap:6px}
+.skill-tag{font-size:12px;font-weight:500;padding:4px 12px;border-radius:20px}
+.skill-good{background:#EAF3DE;color:#3B6D11}
+.skill-miss{background:#FCEBEB;color:#A32D2D}
+
+.list-items{display:flex;flex-direction:column;gap:.6rem}
+.list-item{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.6}
+.list-bullet{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;margin-top:2px}
+.bull-green{background:#EAF3DE;color:#3B6D11}
+.bull-amber{background:#FAEEDA;color:#854F0B}
+.bull-blue{background:#E6F1FB;color:#185FA5}
+
+/* Tabs in app */
+.app-tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:1.5rem}
+.app-tab{padding:10px 20px;font-size:14px;font-weight:500;color:var(--muted);border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;font-family:var(--ff-body);transition:all .2s}
+.app-tab.active{color:var(--teal);border-bottom-color:var(--teal)}
+
+/* User bar */
+.user-bar{display:flex;align-items:center;justify-content:space-between;padding:.75rem 1.5rem;background:var(--white);border-bottom:1px solid var(--border);position:sticky;top:64px;z-index:50}
+.user-info{display:flex;align-items:center;gap:10px}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--teal);color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.user-name{font-size:14px;font-weight:500;color:var(--ink)}
+.logout-btn{font-size:13px;color:var(--muted);background:none;border:none;cursor:pointer;font-family:var(--ff-body)}
+.logout-btn:hover{color:var(--red)}
+
+/* Error */
+.error-box{background:#FCEBEB;border:1px solid #F09595;border-radius:var(--radius-sm);padding:12px 16px;font-size:13px;color:#A32D2D;margin:.75rem 0}
+
+/* Responsive nav */
+@media(max-width:600px){
+  nav{padding:0 1.25rem}
+  .nav-links .nav-link{display:none}
+  .hero{padding:90px 1.25rem 3rem}
+  .steps::before{display:none}
+  .steps{flex-direction:column;gap:1.5rem}
+  .step{flex-direction:row;text-align:left}
+}
+.section-divider{display:flex;align-items:center;gap:1rem;margin:1.5rem 0}
+.section-divider-line{flex:1;height:1px;background:var(--border)}
+.section-divider-text{font-size:13px;font-weight:600;color:var(--teal);letter-spacing:.5px;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Resume<span>IQ</span></div>
+  <div class="nav-links">
+    <a href="#features" class="nav-link">Features</a>
+    <a href="#how" class="nav-link">How it works</a>
+    <button class="nav-cta" onclick="openAuth('login')">Login / Sign Up</button>
+  </div>
+</nav>
+
+<!-- LANDING PAGE -->
+<div id="landing">
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-bg">
+      <div class="hero-bg-circle c1"></div>
+      <div class="hero-bg-circle c2"></div>
+      <div class="hero-bg-circle c3"></div>
+      <div class="hero-grid"></div>
+    </div>
+    <div class="hero-inner">
+      <div class="hero-badge"><span class="hero-badge-dot"></span> Powered by Claude AI</div>
+      <h1 class="hero-h1">Apna Resume <em>Analyse</em> Karo,<br/>Zyada Salary Pao</h1>
+      <p class="hero-sub">AI se ATS score, salary negotiation hints, skill gaps aur recruiter insights — sirf seconds mein.</p>
+      <div class="hero-btns">
+        <button class="btn-primary" onclick="openAuth('signup')">&#9650; Free mein shuru karein</button>
+        <button class="btn-outline" onclick="openAuth('login')">Login karein</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="features-inner">
+      <div class="section-tag">Features</div>
+      <h2 class="section-h">Jo aur koi AI tool nahi deta</h2>
+      <div class="features-grid">
+        <div class="feat-card">
+          <div class="feat-icon">📄</div>
+          <div class="feat-title">PDF Upload Support</div>
+          <div class="feat-desc">Seedha apna PDF resume upload karo — no copy-paste needed. AI khud padhega.</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">🎯</div>
+          <div class="feat-title">ATS Score Checker</div>
+          <div class="feat-desc">Pata karo ki tumhara resume company ke ATS system mein qualify karta hai ya nahi.</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">💰</div>
+          <div class="feat-title">Salary Negotiation Hint</div>
+          <div class="feat-desc">Resume ke basis pe realistic salary range aur negotiation tips milte hain.</div>
+          <span class="feat-badge">⭐ Exclusive</span>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">🔥</div>
+          <div class="feat-title">Skill Gap Analysis</div>
+          <div class="feat-desc">Missing skills identify karo aur job match percentage dekho.</div>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">🎭</div>
+          <div class="feat-title">Tone Analyzer</div>
+          <div class="feat-desc">Resume confident hai ya vague? Personality aur tone check hoti hai.</div>
+          <span class="feat-badge">Coming Soon</span>
+        </div>
+        <div class="feat-card">
+          <div class="feat-icon">🤝</div>
+          <div class="feat-title">Interview Prep Mode</div>
+          <div class="feat-desc">AI bane interviewer aur tumhare resume se tough questions generate kare.</div>
+          <span class="feat-badge">Coming Soon</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="how" id="how">
+    <div class="how-inner">
+      <div class="section-tag">Process</div>
+      <h2 class="section-h">3 steps mein analysis</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-label">Account banao ya login karo</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-label">PDF upload karo ya text paste karo</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-label">Full AI report aur salary hints pao</div>
+        </div>
+      </div>
+      <div style="margin-top:3rem">
+        <button class="btn-primary" onclick="openAuth('signup')">Abhi shuru karein →</button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div style="font-family:'DM Serif Display',serif;font-size:18px;color:#0D9E75;margin-bottom:.5rem">ResumeIQ</div>
+    Made with Claude AI &nbsp;·&nbsp; &copy; 2026
+  </footer>
+</div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal" style="position:relative">
+    <button class="modal-close" onclick="closeAuth()">×</button>
+    <div class="modal-logo">Resume<span>IQ</span></div>
+    <div class="modal-sub" id="authSub">Welcome back — login karo</div>
+    <div class="modal-tabs">
+      <button class="modal-tab active" id="tabLogin" onclick="switchTab('login')">Login</button>
+      <button class="modal-tab" id="tabSignup" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+    <div id="loginForm">
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" id="loginEmail" placeholder="tum@example.com"/></div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="loginPass" placeholder="••••••••"/></div>
+      <button class="form-btn" onclick="doLogin()">Login karein</button>
+    </div>
+    <div id="signupForm" style="display:none">
+      <div class="form-group"><label class="form-label">Naam</label><input class="form-input" type="text" id="signupName" placeholder="Tumhara naam"/></div>
+      <div class="form-group"><label class="form-label">Email</label><input class="form-input" type="email" id="signupEmail" placeholder="tum@example.com"/></div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-input" type="password" id="signupPass" placeholder="••••••••"/></div>
+      <button class="form-btn" onclick="doSignup()">Account banao</button>
+    </div>
+    <div id="authError" class="error-box" style="display:none"></div>
+  </div>
+</div>
+
+<!-- APP SECTION -->
+<div id="app-section">
+  <div class="user-bar">
+    <div class="user-info">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <div class="user-name" id="userName">Loading...</div>
+    </div>
+    <button class="logout-btn" onclick="logout()">Logout</button>
+  </div>
+
+  <div class="app-wrap">
+    <div style="margin-bottom:1.5rem">
+      <h2 style="font-family:'DM Serif Display',serif;font-size:28px;color:var(--ink);letter-spacing:-.3px">Resume Analyse Karo</h2>
+      <p style="font-size:14px;color:var(--muted);margin-top:4px">PDF upload karo ya text paste karo — phir AI analysis shuru hogi</p>
+    </div>
+
+    <!-- Upload Section -->
+    <div class="card-box">
+      <div class="card-title">Resume Upload</div>
+      <div id="filePreview" style="display:none" class="file-preview">
+        <div class="file-preview-icon">📄</div>
+        <div class="file-preview-name" id="fileName">resume.pdf</div>
+        <button class="file-preview-remove" onclick="removeFile()">×</button>
+      </div>
+      <div class="upload-zone" id="uploadZone" ondragover="dragOver(event)" ondragleave="dragLeave()" ondrop="dropFile(event)">
+        <input type="file" id="pdfInput" accept=".pdf" onchange="handleFile(event)"/>
+        <div class="upload-icon">☁</div>
+        <div class="upload-title">PDF drag karo ya click karke select karo</div>
+        <div class="upload-hint">Sirf <b>.PDF</b> files &nbsp;·&nbsp; Max 5MB</div>
+      </div>
+
+      <div class="or-divider">ya text paste karo</div>
+      <textarea class="paste-area" id="pasteText" placeholder="Apna resume text yahan paste karo (agar PDF nahi hai)..."></textarea>
+    </div>
+
+    <div class="card-box">
+      <div class="card-title">Job Description (Optional but Recommended)</div>
+      <textarea class="paste-area" id="jdText" placeholder="Job description yahan paste karo — isse salary hint aur skill match zyada accurate hogi..." style="min-height:100px"></textarea>
+    </div>
+
+    <div id="uploadError" class="error-box" style="display:none"></div>
+    <button class="analyse-main-btn" id="analyseBtn" onclick="startAnalysis()">&#9726; Analyse Karo</button>
+
+    <!-- Loader -->
+    <div class="card-box" id="loaderBox" style="display:none;margin-top:1rem">
+      <div class="loader-wrap">
+        <div class="loader-spinner"></div>
+        <div class="loader-msg" id="loaderMsg">Resume padhte hain...</div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-wrap" id="resultsSection">
+      <div style="margin:2rem 0 1rem">
+        <div class="section-divider"><div class="section-divider-line"></div><div class="section-divider-text">Analysis Report</div><div class="section-divider-line"></div></div>
+      </div>
+
+      <!-- Metrics -->
+      <div class="metrics-row" id="metricsRow"></div>
+
+      <!-- Score Bars -->
+      <div class="card-box" id="scoreBarsBox"></div>
+
+      <!-- Salary Card -->
+      <div class="salary-card" id="salaryCard"></div>
+
+      <!-- Two col -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem" id="twoColGrid">
+        <div class="card-box"><div class="card-title">Strengths</div><div class="list-items" id="strengthsList"></div></div>
+        <div class="card-box"><div class="card-title">Improvements</div><div class="list-items" id="improvList"></div></div>
+      </div>
+
+      <!-- Skills -->
+      <div class="card-box">
+        <div class="card-title">Skills Analysis</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:.5rem">Mili hui skills:</div>
+        <div class="skills-grid" id="skillsFound"></div>
+        <div style="font-size:12px;color:var(--muted);margin:.75rem 0 .5rem">Add karein (missing):</div>
+        <div class="skills-grid" id="skillsMiss"></div>
+      </div>
+
+      <!-- Recommendations -->
+      <div class="card-box">
+        <div class="card-title">Top Recommendations</div>
+        <div class="list-items" id="recsList"></div>
+      </div>
+
+      <div style="text-align:center;padding:1.5rem 0">
+        <button class="btn-outline" onclick="resetAnalysis()">Naya Resume Analyse Karo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// PDF.js setup
+pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// State
+let currentUser=null;
+let extractedText='';
+let selectedFile=null;
+
+// ── SIMPLE AUTH (localStorage) ──
+function getUsers(){try{return JSON.parse(localStorage.getItem('riq_users')||'[]')}catch{return[]}}
+function saveUsers(u){localStorage.setItem('riq_users',JSON.stringify(u))}
+function getSession(){try{return JSON.parse(localStorage.getItem('riq_session'))}catch{return null}}
+function saveSession(u){localStorage.setItem('riq_session',JSON.stringify(u))}
+function clearSession(){localStorage.removeItem('riq_session')}
+
+function openAuth(tab){
+  document.getElementById('authModal').classList.add('open');
+  switchTab(tab);
+}
+function closeAuth(){document.getElementById('authModal').classList.remove('open')}
+function switchTab(t){
+  document.getElementById('loginForm').style.display=t==='login'?'block':'none';
+  document.getElementById('signupForm').style.display=t==='signup'?'block':'none';
+  document.getElementById('tabLogin').className='modal-tab'+(t==='login'?' active':'');
+  document.getElementById('tabSignup').className='modal-tab'+(t==='signup'?' active':'');
+  document.getElementById('authSub').textContent=t==='login'?'Welcome back — login karo':'Naya account banao — free hai';
+  document.getElementById('authError').style.display='none';
+}
+function showAuthErr(m){const e=document.getElementById('authError');e.textContent=m;e.style.display='block'}
+
+function doSignup(){
+  const name=document.getElementById('signupName').value.trim();
+  const email=document.getElementById('signupEmail').value.trim().toLowerCase();
+  const pass=document.getElementById('signupPass').value;
+  if(!name||!email||!pass){showAuthErr('Sab fields fill karo');return}
+  if(pass.length<6){showAuthErr('Password kam se kam 6 characters ka hona chahiye');return}
+  const users=getUsers();
+  if(users.find(u=>u.email===email)){showAuthErr('Email pehle se registered hai — login karo');return}
+  const user={name,email,pass,id:Date.now()};
+  users.push(user);saveUsers(users);saveSession(user);
+  closeAuth();enterApp(user);
+}
+
+function doLogin(){
+  const email=document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pass=document.getElementById('loginPass').value;
+  if(!email||!pass){showAuthErr('Email aur password daalo');return}
+  const users=getUsers();
+  const user=users.find(u=>u.email===email&&u.pass===pass);
+  if(!user){showAuthErr('Email ya password galat hai');return}
+  saveSession(user);closeAuth();enterApp(user);
+}
+
+function enterApp(user){
+  currentUser=user;
+  document.getElementById('landing').style.display='none';
+  document.getElementById('app-section').style.display='block';
+  document.getElementById('userAvatar').textContent=user.name.charAt(0).toUpperCase();
+  document.getElementById('userName').textContent=user.name;
+  window.scrollTo(0,0);
+}
+
+function logout(){
+  clearSession();currentUser=null;extractedText='';selectedFile=null;
+  document.getElementById('landing').style.display='block';
+  document.getElementById('app-section').style.display='none';
+  resetAnalysis();
+  window.scrollTo(0,0);
+}
+
+// ── PDF HANDLING ──
+function handleFile(e){const f=e.target.files[0];if(f)processFile(f)}
+function dragOver(e){e.preventDefault();document.getElementById('uploadZone').classList.add('drag')}
+function dragLeave(){document.getElementById('uploadZone').classList.remove('drag')}
+function dropFile(e){
+  e.preventDefault();dragLeave();
+  const f=e.dataTransfer.files[0];
+  if(f&&f.type==='application/pdf')processFile(f);
+  else showUploadError('Sirf PDF files allowed hain');
+}
+
+async function processFile(file){
+  if(file.size>5*1024*1024){showUploadError('File 5MB se badi hai');return}
+  selectedFile=file;
+  document.getElementById('fileName').textContent=file.name;
+  document.getElementById('filePreview').style.display='flex';
+  document.getElementById('uploadZone').style.display='none';
+  document.getElementById('uploadError').style.display='none';
+  document.getElementById('pasteText').placeholder='PDF upload ho gaya — ya fir yahan bhi paste kar sakte ho...';
+  // Extract text
+  try{
+    const arrayBuffer=await file.arrayBuffer();
+    const pdf=await pdfjsLib.getDocument({data:arrayBuffer}).promise;
+    let text='';
+    for(let i=1;i<=pdf.numPages;i++){
+      const page=await pdf.getPage(i);
+      const content=await page.getTextContent();
+      text+=content.items.map(item=>item.str).join(' ')+'\n';
+    }
+    extractedText=text.trim();
+  }catch(err){showUploadError('PDF padhne mein error: '+err.message);removeFile()}
+}
+
+function removeFile(){
+  selectedFile=null;extractedText='';
+  document.getElementById('filePreview').style.display='none';
+  document.getElementById('uploadZone').style.display='block';
+  document.getElementById('pdfInput').value='';
+}
+
+function showUploadError(m){const e=document.getElementById('uploadError');e.textContent=m;e.style.display='block'}
+
+// ── ANALYSIS ──
+const msgs=['Resume padhte hain...','Skills identify ho rahi hain...','Salary calculate ho raha hai...','Report taiyar ho rahi hai...'];
+let loaderIdx=0,loaderTimer;
+
+async function startAnalysis(){
+  const resumeText=extractedText||document.getElementById('pasteText').value.trim();
+  const jd=document.getElementById('jdText').value.trim();
+  if(!resumeText||resumeText.length<80){showUploadError('Kripya resume text paste karo ya valid PDF upload karo (kam se kam 80 characters chahiye)');return}
+  document.getElementById('uploadError').style.display='none';
+  document.getElementById('resultsSection').classList.remove('show');
+  document.getElementById('analyseBtn').disabled=true;
+  document.getElementById('loaderBox').style.display='block';
+  loaderIdx=0;document.getElementById('loaderMsg').textContent=msgs[0];
+  loaderTimer=setInterval(()=>{loaderIdx=(loaderIdx+1)%msgs.length;document.getElementById('loaderMsg').textContent=msgs[loaderIdx]},2800);
+
+  const sys=`You are an expert resume analyst and career coach with deep knowledge of the Indian job market. Analyse the resume and return ONLY valid JSON (no markdown, no backticks, no extra text) with this exact structure:
+{"ats_score":<0-100>,"readability_score":<0-100>,"completeness_score":<0-100>,"overall_score":<0-100>,"experience_years":<number or null>,"salary":{"min_lpa":<number>,"max_lpa":<number>,"rationale":"<1-2 sentences>","negotiation_tips":["tip1","tip2","tip3"]},"strengths":["s1","s2","s3"],"improvements":["i1","i2","i3"],"skills_found":["sk1","sk2","sk3"],"missing_skills":["m1","m2","m3"],"recommendations":["r1","r2","r3"]}
+All scores are integers. Salary in Indian LPA. Be realistic and specific.`;
+
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,system:sys,
+        messages:[{role:'user',content:`Resume:\n${resumeText.slice(0,3000)}${jd?'\n\nJob Description:\n'+jd.slice(0,1000):''}`}]})
+    });
+    const data=await res.json();
+    clearInterval(loaderTimer);
+    document.getElementById('loaderBox').style.display='none';
+    document.getElementById('analyseBtn').disabled=false;
+    if(!res.ok||!data.content){showUploadError('API Error: '+(data.error?.message||'Unknown'));return}
+    let raw=data.content.map(b=>b.text||'').join('').trim().replace(/```json|```/g,'').trim();
+    renderResults(JSON.parse(raw));
+  }catch(err){
+    clearInterval(loaderTimer);
+    document.getElementById('loaderBox').style.display='none';
+    document.getElementById('analyseBtn').disabled=false;
+    showUploadError('Error: '+err.message);
+  }
+}
+
+function scoreColor(s){return s>=75?'#0D9E75':s>=50?'#EF9F27':'#E24B4A'}
+
+function renderResults(d){
+  // Metrics
+  document.getElementById('metricsRow').innerHTML=[
+    {v:d.overall_score+'%',l:'Overall Score'},
+    {v:d.ats_score+'%',l:'ATS Score'},
+    {v:d.readability_score+'%',l:'Readability'},
+    {v:(d.experience_years!=null?d.experience_years+' yrs':'N/A'),l:'Experience'},
+  ].map(m=>`<div class="metric-box"><div class="metric-val">${m.v}</div><div class="metric-lbl">${m.l}</div></div>`).join('');
+
+  // Bars
+  document.getElementById('scoreBarsBox').innerHTML='<div class="card-title">Score Breakdown</div>'+
+    [{l:'ATS Score',v:d.ats_score},{l:'Readability',v:d.readability_score},{l:'Completeness',v:d.completeness_score}]
+    .map(b=>`<div class="bar-item"><div class="bar-top"><span>${b.l}</span><span>${b.v}%</span></div><div class="bar-bg"><div class="bar-fill" style="width:${b.v}%;background:${scoreColor(b.v)}"></div></div></div>`).join('');
+
+  // Salary
+  const s=d.salary;
+  document.getElementById('salaryCard').innerHTML=`
+    <div class="salary-eyebrow">Salary Negotiation Hint</div>
+    <div class="salary-range-display">₹${s.min_lpa} – ₹${s.max_lpa} LPA</div>
+    <div class="salary-rationale">${s.rationale}</div>
+    <ul class="nego-tips">${(s.negotiation_tips||[]).map(t=>`<li>${t}</li>`).join('')}</ul>`;
+
+  // Strengths
+  document.getElementById('strengthsList').innerHTML=(d.strengths||[]).map(s=>
+    `<div class="list-item"><div class="list-bullet bull-green">✓</div><div>${s}</div></div>`).join('');
+
+  // Improvements
+  document.getElementById('improvList').innerHTML=(d.improvements||[]).map(i=>
+    `<div class="list-item"><div class="list-bullet bull-amber">!</div><div>${i}</div></div>`).join('');
+
+  // Skills
+  document.getElementById('skillsFound').innerHTML=(d.skills_found||[]).map(s=>
+    `<span class="skill-tag skill-good">${s}</span>`).join('');
+  document.getElementById('skillsMiss').innerHTML=(d.missing_skills||[]).map(s=>
+    `<span class="skill-tag skill-miss">${s}</span>`).join('');
+
+  // Recommendations
+  document.getElementById('recsList').innerHTML=(d.recommendations||[]).map((r,i)=>
+    `<div class="list-item"><div class="list-bullet bull-blue" style="font-size:12px;font-weight:600">${i+1}</div><div>${r}</div></div>`).join('');
+
+  document.getElementById('resultsSection').classList.add('show');
+  setTimeout(()=>document.getElementById('resultsSection').scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+
+function resetAnalysis(){
+  removeFile();
+  document.getElementById('pasteText').value='';
+  document.getElementById('jdText').value='';
+  document.getElementById('resultsSection').classList.remove('show');
+  document.getElementById('uploadError').style.display='none';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// Check session on load
+window.addEventListener('load',()=>{
+  const s=getSession();
+  if(s){enterApp(s)}
+});
+</script>
+</body>
+</html>
