@@ -151,6 +151,21 @@ type SkillRoiPlanner = {
   skills: SkillRoiPlanItem[];
 };
 
+type SemanticRagEvidenceItem = {
+  snippet: string;
+  similarity_score: number;
+  why_it_matters: string;
+  source: "resume" | "job_description";
+};
+
+type SemanticRagInsights = {
+  semantic_match_score: number;
+  coverage_summary: string;
+  missing_intents: string[];
+  top_evidence: SemanticRagEvidenceItem[];
+  retrieval_mode: "embedding" | "heuristic";
+};
+
 type AnalysisReport = {
   ats_score?: number;
   readability_score?: number;
@@ -182,6 +197,7 @@ type AnalysisReport = {
   career_narrative_graph?: unknown;
   job_reachability_score?: unknown;
   skill_roi_planner?: unknown;
+  semantic_rag_insights?: unknown;
   tone_analysis?: { dominant_tone?: string; reasoning?: string };
   emotion_score?: { confidence?: number; humility?: number; ambition?: number };
   jargon_detected?: string[];
@@ -776,6 +792,71 @@ function normalizeSkillRoiPlanner(raw: unknown): SkillRoiPlanner | null {
   };
 }
 
+function normalizeSemanticRagInsights(raw: unknown): SemanticRagInsights | null {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+
+  const source = raw as Record<string, unknown>;
+  const semanticMatchScore =
+    typeof source.semantic_match_score === "number" && Number.isFinite(source.semantic_match_score)
+      ? Math.max(0, Math.min(100, Math.round(source.semantic_match_score)))
+      : null;
+
+  const coverageSummary =
+    typeof source.coverage_summary === "string" && source.coverage_summary.trim()
+      ? source.coverage_summary.trim()
+      : "";
+
+  const retrievalMode =
+    source.retrieval_mode === "embedding" || source.retrieval_mode === "heuristic"
+      ? source.retrieval_mode
+      : "heuristic";
+
+  const topEvidence = Array.isArray(source.top_evidence)
+    ? source.top_evidence
+        .map((entry) => {
+          if (!entry || typeof entry !== "object") {
+            return null;
+          }
+
+          const row = entry as Record<string, unknown>;
+          const snippet = typeof row.snippet === "string" ? row.snippet.trim() : "";
+          const why = typeof row.why_it_matters === "string" ? row.why_it_matters.trim() : "";
+          const similarity =
+            typeof row.similarity_score === "number" && Number.isFinite(row.similarity_score)
+              ? Math.max(0, Math.min(100, Math.round(row.similarity_score)))
+              : null;
+          const evidenceSource = row.source === "resume" || row.source === "job_description" ? row.source : "resume";
+
+          if (!snippet || !why || similarity === null) {
+            return null;
+          }
+
+          return {
+            snippet,
+            similarity_score: similarity,
+            why_it_matters: why,
+            source: evidenceSource,
+          };
+        })
+        .filter((entry): entry is SemanticRagEvidenceItem => Boolean(entry))
+        .slice(0, 3)
+    : [];
+
+  if (semanticMatchScore === null || !coverageSummary) {
+    return null;
+  }
+
+  return {
+    semantic_match_score: semanticMatchScore,
+    coverage_summary: coverageSummary,
+    missing_intents: normalizeStringList(source.missing_intents, 5),
+    top_evidence: topEvidence,
+    retrieval_mode: retrievalMode,
+  };
+}
+
 function normalizeLineText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -1316,6 +1397,7 @@ export default function AnalysisPage() {
   const careerNarrativeGraph = normalizeCareerNarrativeGraph(data.career_narrative_graph);
   const jobReachabilityScore = normalizeJobReachabilityScore(data.job_reachability_score);
   const skillRoiPlanner = normalizeSkillRoiPlanner(data.skill_roi_planner);
+  const semanticRagInsights = normalizeSemanticRagInsights(data.semantic_rag_insights);
   const conversionTrend = buildInterviewTrend(getLocalHistory(creditOwnerId), interviewPredictor.probability_percent);
 
   return (
@@ -1339,7 +1421,7 @@ export default function AnalysisPage() {
           <CreditPlansCard
             ownerId={creditOwnerId}
             title="Credit + Tier Access"
-            subtitle="Free tier uses credits for per-run Pro unlocks. Pro and Premium subscriptions provide unlimited analysis access."
+            subtitle="Free tier includes basic analysis. Upgrade to Pro or Premium subscription to unlock advanced modules."
             onWalletChange={(wallet) => setCreditBalance(wallet.balance)}
           />
           <p className="text-xs text-muted">
@@ -1449,6 +1531,82 @@ export default function AnalysisPage() {
                 </ul>
               </div>
             </motion.div>
+
+            {semanticRagInsights && (
+            <div className="glass-card p-8 border-primary-500/20 bg-gradient-to-br from-card to-primary-500/5">
+              <div className="flex items-start justify-between gap-3 mb-5">
+                <div>
+                  <h2 className="text-xl font-heading font-bold flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-primary-500" /> Semantic Match Evidence
+                  </h2>
+                  <p className="text-xs text-muted mt-2">
+                    Retrieval-grounded match between your resume context and target job intent.
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-primary-500/10 text-primary-600">
+                  {semanticRagInsights.retrieval_mode === "embedding" ? "Embedding RAG" : "Heuristic RAG"}
+                </span>
+              </div>
+
+              <div className="grid md:grid-cols-[220px_1fr] gap-5 mb-5">
+                <div className="rounded-xl border border-border bg-card/60 p-4">
+                  <p className="text-xs uppercase tracking-wider text-muted font-semibold mb-1">Semantic Match</p>
+                  <p className="text-3xl font-heading font-bold text-foreground mb-3">
+                    {semanticRagInsights.semantic_match_score}%
+                  </p>
+                  <div className="h-2 rounded-full bg-border overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${semanticRagInsights.semantic_match_score}%` }}
+                      transition={{ duration: 0.7 }}
+                      className={clsx(
+                        "h-full rounded-full",
+                        semanticRagInsights.semantic_match_score >= 75
+                          ? "bg-green-500"
+                          : semanticRagInsights.semantic_match_score >= 55
+                            ? "bg-amber-500"
+                            : "bg-rose-500"
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-border bg-card/60 p-4 space-y-3">
+                  <p className="text-xs uppercase tracking-wider font-semibold text-primary-600">Coverage Summary</p>
+                  <p className="text-sm text-foreground/85 leading-relaxed">{semanticRagInsights.coverage_summary}</p>
+                  {semanticRagInsights.missing_intents.length > 0 ? (
+                    <div>
+                      <p className="text-xs uppercase tracking-wider font-semibold text-muted mb-2">Missing Intents</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {semanticRagInsights.missing_intents.map((intent, index) => (
+                          <span key={`intent-${index}`} className="px-2 py-1 rounded text-[11px] bg-rose-500/10 text-rose-600">
+                            {intent}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              {semanticRagInsights.top_evidence.length > 0 ? (
+                <div className="grid md:grid-cols-3 gap-4">
+                  {semanticRagInsights.top_evidence.map((evidence, index) => (
+                    <div key={`semantic-evidence-${index}`} className="rounded-xl border border-border bg-card/60 p-4 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-primary-600 uppercase tracking-wider">
+                          Evidence {index + 1}
+                        </span>
+                        <span className="text-xs font-semibold text-foreground">{evidence.similarity_score}%</span>
+                      </div>
+                      <p className="text-xs text-foreground/80 leading-relaxed">{evidence.snippet}</p>
+                      <p className="text-xs text-muted leading-relaxed">{evidence.why_it_matters}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            )}
 
             {premiumUnlocked && (
             <div className="glass-card p-8 border-primary-500/20 bg-gradient-to-br from-card to-primary-500/5">

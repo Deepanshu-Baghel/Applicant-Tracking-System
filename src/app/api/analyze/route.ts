@@ -14,6 +14,56 @@ const DEFAULT_MODEL_CANDIDATES = [
   'gemini-1.5-flash-latest',
 ].filter((model): model is string => Boolean(model));
 
+const EMBEDDING_MODEL_CANDIDATES = [
+  process.env.GEMINI_EMBED_MODEL,
+  'text-embedding-004',
+  'embedding-001',
+].filter((model): model is string => Boolean(model));
+
+const SEMANTIC_STOPWORDS = new Set([
+  'a',
+  'an',
+  'the',
+  'and',
+  'or',
+  'to',
+  'for',
+  'of',
+  'in',
+  'on',
+  'with',
+  'by',
+  'from',
+  'is',
+  'are',
+  'be',
+  'as',
+  'this',
+  'that',
+  'these',
+  'those',
+  'at',
+  'your',
+  'you',
+  'our',
+  'we',
+  'will',
+  'can',
+  'must',
+  'should',
+  'role',
+  'job',
+  'candidate',
+  'experience',
+  'years',
+  'work',
+  'team',
+  'skills',
+  'skill',
+  'requirement',
+  'requirements',
+]);
+
 function isModelUnavailableError(message: string): boolean {
   const normalized = message.toLowerCase();
   return (
@@ -407,6 +457,21 @@ type SkillRoiPlanner = {
   skills: SkillRoiPlanItem[];
 };
 
+type SemanticRagEvidenceItem = {
+  snippet: string;
+  similarity_score: number;
+  why_it_matters: string;
+  source: 'resume' | 'job_description';
+};
+
+type SemanticRagInsights = {
+  semantic_match_score: number;
+  coverage_summary: string;
+  missing_intents: string[];
+  top_evidence: SemanticRagEvidenceItem[];
+  retrieval_mode: 'embedding' | 'heuristic';
+};
+
 function atsStatusFromScore(score: number): AtsPlatformStatus {
   if (score >= 75) {
     return 'Strong';
@@ -428,6 +493,322 @@ function normalizeStringArray(value: unknown, limit: number): string[] {
     .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     .map((item) => item.trim())
     .slice(0, limit);
+}
+
+function clipSnippet(text: string, maxLength = 180): string {
+  const normalized = text.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength - 3).trim()}...`;
+}
+
+function normalizeEmbedding(values: number[]): number[] | null {
+  if (!values.length) {
+    return null;
+  }
+
+  const magnitude = Math.sqrt(values.reduce((sum, value) => sum + value * value, 0));
+  if (!Number.isFinite(magnitude) || magnitude === 0) {
+    return null;
+  }
+
+  return values.map((value) => value / magnitude);
+}
+
+function cosineSimilarity(normalizedA: number[], normalizedB: number[]): number {
+  const length = Math.min(normalizedA.length, normalizedB.length);
+  if (!length) {
+    return 0;
+  }
+
+  let dotProduct = 0;
+  for (let index = 0; index < length; index += 1) {
+    dotProduct += normalizedA[index] * normalizedB[index];
+  }
+
+  return Math.max(-1, Math.min(1, dotProduct));
+}
+
+function splitIntoSemanticChunks(text: string, targetWords = 90, overlapWords = 20, maxChunks = 12): string[] {
+  const words = text
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter((word) => word.length > 0);
+
+  if (!words.length) {
+    return [];
+  }
+
+  const chunks: string[] = [];
+  const step = Math.max(1, targetWords - overlapWords);
+
+  for (let start = 0; start < words.length && chunks.length < maxChunks; start += step) {
+    const chunk = words.slice(start, start + targetWords).join(' ').trim();
+    if (chunk.length >= 40) {
+      chunks.push(chunk);
+    }
+
+    if (start + targetWords >= words.length) {
+      break;
+    }
+  }
+
+  return chunks;
+}
+
+function extractIntentKeywords(text: string, limit: number): string[] {
+  const tokens = text.toLowerCase().match(/[a-z][a-z0-9+.#-]{2,}/g) ?? [];
+  const frequency = new Map<string, number>();
+
+  for (const token of tokens) {
+    if (SEMANTIC_STOPWORDS.has(token)) {
+      continue;
+    }
+    frequency.set(token, (frequency.get(token) ?? 0) + 1);
+  }
+
+  return [...frequency.entries()]
+    .sort((a, b) => {
+      if (b[1] === a[1]) {
+        return b[0].length - a[0].length;
+      }
+
+      return b[1] - a[1];
+    })
+    .map(([token]) => token)
+    .slice(0, limit);
+}
+
+function buildHeuristicSemanticRagInsights(
+  resumeText: string,
+  jobDescription?: string
+): SemanticRagInsights {
+  const resumeLower = resumeText.toLowerCase();
+  const intentKeywords = extractIntentKeywords(jobDescription ?? '', 14);
+  const missingIntents = intentKeywords.filter((keyword) => !resumeLower.includes(keyword)).slice(0, 5);
+  const matchedIntents = intentKeywords.filter((keyword) => resumeLower.includes(keyword));
+  const overlapRatio = intentKeywords.length ? matchedIntents.length / intentKeywords.length : 0.55;
+  const semanticMatchScore = clampScore(35 + overlapRatio * 60);
+
+  const candidateLines = resumeText
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 32);
+
+  const evidenceLines = candidateLines
+    .filter((line) => {
+      if (!matchedIntents.length) {
+        return true;
+      }
+
+      const lower = line.toLowerCase();
+      return matchedIntents.some((keyword) => lower.includes(keyword));
+    })
+    .slice(0, 3);
+
+  const topEvidence = (evidenceLines.length ? evidenceLines : candidateLines.slice(0, 3)).map((line, index) => ({
+    snippet: clipSnippet(line),
+    similarity_score: clampScore(semanticMatchScore - index * 4),
+    why_it_matters: matchedIntents.length
+      ? `This evidence reflects target intent around ${matchedIntents.slice(0, 2).join(' and ')}.`
+      : 'This evidence highlights role-relevant execution context in the resume.',
+    source: 'resume' as const,
+  }));
+
+  const coverageSummary = jobDescription && jobDescription.trim().length > 0
+    ? matchedIntents.length
+      ? `Heuristic semantic scan found ${matchedIntents.length}/${intentKeywords.length || 1} target intents represented in resume evidence.`
+      : 'Heuristic semantic scan found limited direct alignment with the target job intent.'
+    : 'No job description provided, so semantic retrieval used resume-only evidence cues.';
+
+  return {
+    semantic_match_score: semanticMatchScore,
+    coverage_summary: coverageSummary,
+    missing_intents: missingIntents,
+    top_evidence: topEvidence,
+    retrieval_mode: 'heuristic',
+  };
+}
+
+async function embedText(genAI: GoogleGenerativeAI, text: string): Promise<number[] | null> {
+  const payload = text.replace(/\s+/g, ' ').trim();
+  if (!payload) {
+    return null;
+  }
+
+  for (const modelName of EMBEDDING_MODEL_CANDIDATES) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const response = await model.embedContent(payload.slice(0, 8000));
+      const values = Array.isArray(response.embedding?.values)
+        ? response.embedding.values.filter(
+            (value): value is number => typeof value === 'number' && Number.isFinite(value)
+          )
+        : [];
+      const normalized = normalizeEmbedding(values);
+
+      if (normalized) {
+        return normalized;
+      }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (isModelUnavailableError(message) || isQuotaExceededError(message)) {
+        continue;
+      }
+
+      continue;
+    }
+  }
+
+  return null;
+}
+
+async function buildSemanticRagInsights(params: {
+  genAI: GoogleGenerativeAI;
+  resumeText: string;
+  jobDescription?: string;
+}): Promise<SemanticRagInsights> {
+  const { genAI, resumeText, jobDescription } = params;
+  const heuristicInsights = buildHeuristicSemanticRagInsights(resumeText, jobDescription);
+
+  if (!jobDescription || !jobDescription.trim()) {
+    return heuristicInsights;
+  }
+
+  const jobVector = await embedText(genAI, jobDescription);
+  if (!jobVector) {
+    return heuristicInsights;
+  }
+
+  const chunks = splitIntoSemanticChunks(resumeText, 95, 24, 12);
+  if (!chunks.length) {
+    return heuristicInsights;
+  }
+
+  const scoredChunks: Array<{ snippet: string; rawSimilarity: number }> = [];
+  for (const chunk of chunks) {
+    const chunkVector = await embedText(genAI, chunk);
+    if (!chunkVector) {
+      continue;
+    }
+
+    scoredChunks.push({
+      snippet: chunk,
+      rawSimilarity: cosineSimilarity(jobVector, chunkVector),
+    });
+  }
+
+  if (!scoredChunks.length) {
+    return heuristicInsights;
+  }
+
+  const topScored = scoredChunks
+    .sort((a, b) => b.rawSimilarity - a.rawSimilarity)
+    .slice(0, 3);
+
+  const intentKeywords = extractIntentKeywords(jobDescription, 10);
+  const topEvidence: SemanticRagEvidenceItem[] = topScored.map((entry) => {
+    const snippetLower = entry.snippet.toLowerCase();
+    const overlap = intentKeywords.filter((keyword) => snippetLower.includes(keyword)).slice(0, 2);
+
+    return {
+      snippet: clipSnippet(entry.snippet),
+      similarity_score: clampScore(((entry.rawSimilarity + 1) / 2) * 100),
+      why_it_matters: overlap.length
+        ? `Matches target intent around ${overlap.join(' and ')} with concrete resume evidence.`
+        : 'Semantically close to target role context even when exact keyword match is low.',
+      source: 'resume',
+    };
+  });
+
+  const averageSimilarity =
+    topEvidence.reduce((sum, entry) => sum + entry.similarity_score, 0) /
+    Math.max(1, topEvidence.length);
+
+  const semanticMatchScore = clampScore(
+    averageSimilarity * 0.72 + heuristicInsights.semantic_match_score * 0.28
+  );
+
+  return {
+    semantic_match_score: semanticMatchScore,
+    coverage_summary: `Embedding retrieval matched ${topEvidence.length} high-similarity resume evidence chunks against the job description intent.`,
+    missing_intents: heuristicInsights.missing_intents,
+    top_evidence: topEvidence,
+    retrieval_mode: 'embedding',
+  };
+}
+
+function normalizeSemanticRagInsightsPayload(
+  raw: unknown,
+  fallback: SemanticRagInsights
+): SemanticRagInsights {
+  if (!raw || typeof raw !== 'object') {
+    return fallback;
+  }
+
+  const source = raw as Record<string, unknown>;
+  const score =
+    typeof source.semantic_match_score === 'number' && Number.isFinite(source.semantic_match_score)
+      ? clampScore(source.semantic_match_score)
+      : fallback.semantic_match_score;
+
+  const coverageSummary =
+    typeof source.coverage_summary === 'string' && source.coverage_summary.trim()
+      ? source.coverage_summary.trim()
+      : fallback.coverage_summary;
+
+  const missingIntents = normalizeStringArray(source.missing_intents, 5);
+  const retrievalMode =
+    source.retrieval_mode === 'embedding' || source.retrieval_mode === 'heuristic'
+      ? source.retrieval_mode
+      : fallback.retrieval_mode;
+
+  const topEvidence = Array.isArray(source.top_evidence)
+    ? source.top_evidence
+        .map((entry) => {
+          if (!entry || typeof entry !== 'object') {
+            return null;
+          }
+
+          const row = entry as Record<string, unknown>;
+          const snippet = typeof row.snippet === 'string' ? clipSnippet(row.snippet) : '';
+          const whyItMatters =
+            typeof row.why_it_matters === 'string' && row.why_it_matters.trim()
+              ? row.why_it_matters.trim()
+              : '';
+          const similarity =
+            typeof row.similarity_score === 'number' && Number.isFinite(row.similarity_score)
+              ? clampScore(row.similarity_score)
+              : null;
+          const sourceType = row.source === 'resume' || row.source === 'job_description'
+            ? row.source
+            : 'resume';
+
+          if (!snippet || !whyItMatters || similarity === null) {
+            return null;
+          }
+
+          return {
+            snippet,
+            similarity_score: similarity,
+            why_it_matters: whyItMatters,
+            source: sourceType,
+          };
+        })
+        .filter((entry): entry is SemanticRagEvidenceItem => Boolean(entry))
+        .slice(0, 3)
+    : [];
+
+  return {
+    semantic_match_score: score,
+    coverage_summary: coverageSummary,
+    missing_intents: missingIntents.length ? missingIntents : fallback.missing_intents,
+    top_evidence: topEvidence.length ? topEvidence : fallback.top_evidence,
+    retrieval_mode: retrievalMode,
+  };
 }
 
 function buildFallbackAtsSimulator(params: {
@@ -1319,7 +1700,11 @@ function buildFallbackSkillRoiPlanner(params: {
   };
 }
 
-function generateFallbackReport(resumeText: string, jobDescription?: string) {
+function generateFallbackReport(
+  resumeText: string,
+  jobDescription?: string,
+  semanticRagInsights?: SemanticRagInsights
+) {
   const resumeLower = resumeText.toLowerCase();
   const jdLower = (jobDescription ?? '').toLowerCase();
   const jdWords = new Set(jdLower.match(/[a-zA-Z][a-zA-Z0-9+.#-]{1,}/g) ?? []);
@@ -1539,6 +1924,7 @@ function generateFallbackReport(resumeText: string, jobDescription?: string) {
     predictedLpa,
     interviewProbability: interviewConversionPredictor.probability_percent,
   });
+  const resolvedSemanticRagInsights = semanticRagInsights ?? buildHeuristicSemanticRagInsights(resumeText, jobDescription);
 
   const salaryAssumptions = [
     `Experience inferred from resume text: ${experienceYears ?? 'not explicitly stated'} years.`,
@@ -1578,6 +1964,7 @@ function generateFallbackReport(resumeText: string, jobDescription?: string) {
     missing_skills: missingSkills,
     recommendations: recommendations.slice(0, 3),
     rewrite_suggestions: rewriteSuggestions,
+    semantic_rag_insights: resolvedSemanticRagInsights,
     recruiter_eye_path: recruiterEyePath,
     recruiter_heatmap: recruiterHeatmap,
     career_narrative_graph: careerNarrativeGraph,
@@ -1728,6 +2115,11 @@ export async function POST(req: Request) {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const semanticRagInsights = await buildSemanticRagInsights({
+      genAI,
+      resumeText,
+      jobDescription,
+    });
 
     const userMessage = `Resume:\n${resumeText.slice(0, 4000)}${jobDescription ? '\n\nJob Description:\n' + jobDescription.slice(0, 2000) : ''}`;
 
@@ -1862,6 +2254,20 @@ export async function POST(req: Request) {
       }
     ]
   },
+  "semantic_rag_insights": {
+    "semantic_match_score": number (0-100),
+    "coverage_summary": "1 sentence summary of semantic coverage",
+    "missing_intents": ["intent1", "intent2", "intent3"],
+    "top_evidence": [
+      {
+        "snippet": "short resume snippet that supports alignment",
+        "similarity_score": number (0-100),
+        "why_it_matters": "why this snippet matters for the target role",
+        "source": "resume" | "job_description"
+      }
+    ],
+    "retrieval_mode": "embedding" | "heuristic"
+  },
   "tone_analysis": {
     "dominant_tone": "Confident" | "Aggressive" | "Passive" | "Vague",
     "reasoning": "1 sentence explanation"
@@ -1889,6 +2295,7 @@ Important: recruiter_eye_path must be fold-by-fold and realistic for a 7-second 
 Important: career_narrative_graph must include IC/Manager/Specialist readiness scores.
 Important: job_reachability_score must output only one verdict from Apply now / Upskill first / Stretch.
 Important: skill_roi_planner must prioritize high-ROI skills with realistic effort and uplift.
+Important: semantic_rag_insights must be grounded in resume and JD evidence only; do not fabricate snippets.
 Important: salary.predicted_lpa must be exactly one resume-specific number in LPA. Never return min/max salary range.`;
 
     let responseText = '';
@@ -1937,7 +2344,7 @@ Important: salary.predicted_lpa must be exactly one resume-specific number in LP
 
     if (!responseText) {
       if (sawQuotaError) {
-        const fallbackReport = generateFallbackReport(resumeText, jobDescription);
+        const fallbackReport = generateFallbackReport(resumeText, jobDescription, semanticRagInsights);
         const accessState = await resolveFeatureAccess();
 
         const premiumAwareFallback = {
@@ -1988,7 +2395,7 @@ Important: salary.predicted_lpa must be exactly one resume-specific number in LP
               ...fallbackReport.recommendations.slice(0, 2),
               accessState.proUnlocked
                 ? 'Gemini quota exceeded, so this report was generated in fallback mode. Enable billing or retry later for full AI quality.'
-                : 'Pro insights are locked because credits are unavailable. Buy credits or upgrade to Pro to unlock ATS simulator and resume variants.',
+                : 'Pro insights are locked on free tier. Upgrade to Pro or Premium to unlock ATS simulator and resume variants.',
             ],
           },
           {
@@ -2009,7 +2416,7 @@ Important: salary.predicted_lpa must be exactly one resume-specific number in LP
 
     const parsedResponse = JSON.parse(responseText) as Record<string, unknown>;
     delete parsedResponse.tough_questions;
-    const fallbackReport = generateFallbackReport(resumeText, jobDescription);
+    const fallbackReport = generateFallbackReport(resumeText, jobDescription, semanticRagInsights);
     const wordCount = Math.max(1, (resumeText.match(/\b\w+\b/g) ?? []).length);
     const modelAts = typeof parsedResponse.ats_score === 'number' ? parsedResponse.ats_score : fallbackReport.ats_score;
     const modelReadability =
@@ -2089,6 +2496,7 @@ Important: salary.predicted_lpa must be exactly one resume-specific number in LP
     const fallbackCareerNarrativeGraph = fallbackReport.career_narrative_graph as CareerNarrativeGraph;
     const fallbackJobReachability = fallbackReport.job_reachability_score as JobReachabilityScore;
     const fallbackSkillRoiPlanner = fallbackReport.skill_roi_planner as SkillRoiPlanner;
+    const fallbackSemanticRagInsights = fallbackReport.semantic_rag_insights as SemanticRagInsights;
     const accessState = await resolveFeatureAccess();
 
     const responsePayload: Record<string, unknown> = {
@@ -2109,6 +2517,10 @@ Important: salary.predicted_lpa must be exactly one resume-specific number in LP
         parsedResponse.salary,
         fallbackReport.salary.predicted_lpa,
         fallbackReport.salary.assumptions
+      ),
+      semantic_rag_insights: normalizeSemanticRagInsightsPayload(
+        parsedResponse.semantic_rag_insights,
+        fallbackSemanticRagInsights
       ),
     };
 
