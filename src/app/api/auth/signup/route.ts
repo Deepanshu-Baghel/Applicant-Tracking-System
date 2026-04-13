@@ -34,6 +34,22 @@ function getAdminClient() {
   });
 }
 
+function getPublicClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anon) {
+    return null;
+  }
+
+  return createClient(url, anon, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
 function resolveAuthEmailRedirectUrl(candidate?: string): string {
   const envValue = process.env.NEXT_PUBLIC_AUTH_EMAIL_REDIRECT_URL?.trim();
   const preferred = (candidate ?? "").trim() || envValue || DEFAULT_AUTH_EMAIL_REDIRECT_URL;
@@ -182,15 +198,44 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Signup infra is not configured on server." }, { status: 500 });
     }
 
-    let mailerConfig: MailerConfig;
+    const redirectTo = resolveAuthEmailRedirectUrl(body.emailRedirectTo);
+
+    let mailerConfig: MailerConfig | null = null;
     try {
       mailerConfig = getMailerConfig();
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "Email provider is not configured on server.";
-      return NextResponse.json({ error: message }, { status: 500 });
+    } catch {
+      mailerConfig = null;
     }
 
-    const redirectTo = resolveAuthEmailRedirectUrl(body.emailRedirectTo);
+    if (!mailerConfig) {
+      const publicClient = getPublicClient();
+      if (!publicClient) {
+        return NextResponse.json({ error: "Signup infra is not configured on server." }, { status: 500 });
+      }
+
+      const { error } = await publicClient.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectTo,
+          data: {
+            name: fullName,
+            date_of_birth: dateOfBirth,
+          },
+        },
+      });
+
+      if (error) {
+        const message = error.message || "Unable to create account.";
+        const isConflict = /already|exists|registered/i.test(message);
+        return NextResponse.json({ error: message }, { status: isConflict ? 409 : 400 });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        message: "Account created! Please verify your email, then log in.",
+      });
+    }
 
     const { data, error } = await adminClient.auth.admin.generateLink({
       type: "signup",
