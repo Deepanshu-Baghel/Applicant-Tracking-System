@@ -58,7 +58,7 @@ export default function LoginPage() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLogin && !supabase) {
+    if (!supabase) {
       alert("Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your .env.local file.");
       return;
     }
@@ -84,30 +84,19 @@ export default function LoginPage() {
           throw new Error("Date of birth is required for signup.");
         }
 
-        const signupResponse = await fetch("/api/auth/signup", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            email,
-            password,
-            fullName: fullName.trim(),
-            dateOfBirth,
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
             emailRedirectTo: AUTH_EMAIL_REDIRECT_URL,
-          }),
+            data: {
+              name: fullName.trim(),
+              date_of_birth: dateOfBirth,
+            },
+          },
         });
-
-        const signupPayload = (await signupResponse.json().catch(() => ({}))) as {
-          error?: string;
-          message?: string;
-        };
-
-        if (!signupResponse.ok) {
-          throw new Error(signupPayload.error ?? "Unable to create account right now.");
-        }
-
-        alert(signupPayload.message ?? "Account created! Please verify your email, then log in.");
+        if (error) throw error;
+        alert("Account created! Please verify your email, then log in.");
         setFullName("");
         setDateOfBirth("");
         setIsLogin(true);

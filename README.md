@@ -36,9 +36,6 @@ Open http://localhost:3000.
 - CUSTOM_FINETUNE_ENABLED (optional, default true)
 - FINETUNE_DATA_CAPTURE (optional, set false to disable sample logging)
 - NEXT_PUBLIC_AUTH_EMAIL_REDIRECT_URL (optional, default: https://www.webresume.tech/login)
-- RESEND_API_KEY (required for official branded signup verification emails)
-- AUTH_EMAIL_FROM (recommended, e.g. WebResume <noreply@webresume.tech>)
-- AUTH_EMAIL_REPLY_TO (optional, support mailbox)
 - RAZORPAY_KEY_ID
 - RAZORPAY_KEY_SECRET
 
@@ -53,7 +50,6 @@ Open http://localhost:3000.
   - `supabase/migrations/20260413_finetune_samples.sql`
 - Normal analysis and HR batch scoring use multi-query hybrid retrieval (vector + lexical blending) with historical memory fallback.
 - Fine-tune samples are captured server-side and can be exported from `GET /api/fine-tune/export?format=jsonl`.
-- Signup now uses `POST /api/auth/signup`, which sends branded verification mail via your configured sender instead of default Supabase sender.
 - Legacy buy routes redirect to /billing.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
