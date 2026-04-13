@@ -6,6 +6,29 @@ import { useRouter } from "next/navigation";
 import NavBar from "@/components/NavBar";
 import { FileText, ArrowRight } from "lucide-react";
 
+const DEFAULT_AUTH_EMAIL_REDIRECT_URL = "https://www.webresume.tech/login";
+
+function resolveAuthEmailRedirectUrl(): string {
+  const candidate = process.env.NEXT_PUBLIC_AUTH_EMAIL_REDIRECT_URL?.trim();
+
+  if (!candidate) {
+    return DEFAULT_AUTH_EMAIL_REDIRECT_URL;
+  }
+
+  try {
+    const parsed = new URL(candidate);
+    const host = parsed.hostname.toLowerCase();
+    if (host === "localhost" || host === "127.0.0.1") {
+      return DEFAULT_AUTH_EMAIL_REDIRECT_URL;
+    }
+    return parsed.toString();
+  } catch {
+    return DEFAULT_AUTH_EMAIL_REDIRECT_URL;
+  }
+}
+
+const AUTH_EMAIL_REDIRECT_URL = resolveAuthEmailRedirectUrl();
+
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -35,7 +58,7 @@ export default function LoginPage() {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!supabase) {
+    if (isLogin && !supabase) {
       alert("Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your .env.local file.");
       return;
     }
@@ -57,19 +80,30 @@ export default function LoginPage() {
           throw new Error("Date of birth is required for signup.");
         }
 
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/login`,
-            data: {
-              name: fullName.trim(),
-              date_of_birth: dateOfBirth,
-            },
+        const signupResponse = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
+          body: JSON.stringify({
+            email,
+            password,
+            fullName: fullName.trim(),
+            dateOfBirth,
+            emailRedirectTo: AUTH_EMAIL_REDIRECT_URL,
+          }),
         });
-        if (error) throw error;
-        alert("Account created! Please verify your email, then log in.");
+
+        const signupPayload = (await signupResponse.json().catch(() => ({}))) as {
+          error?: string;
+          message?: string;
+        };
+
+        if (!signupResponse.ok) {
+          throw new Error(signupPayload.error ?? "Unable to create account right now.");
+        }
+
+        alert(signupPayload.message ?? "Account created! Please verify your email, then log in.");
         setFullName("");
         setDateOfBirth("");
         setIsLogin(true);
