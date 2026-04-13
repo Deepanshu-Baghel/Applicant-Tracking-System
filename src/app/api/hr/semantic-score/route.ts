@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { createHash } from "crypto";
 import { getAuthenticatedUserWithTier } from "@/lib/subscriptionServer";
 import { searchVectorDocuments, upsertVectorDocument } from "@/lib/vectorMemoryServer";
+import { recordFineTuneSample } from "@/lib/fineTuneServer";
 
 type EmbeddingProvider = "huggingface-sentence-transformers" | "gemini";
 
@@ -23,6 +24,27 @@ const EMBEDDING_MODEL_CANDIDATES = [
   "text-embedding-004",
   "embedding-001",
 ].filter((model): model is string => Boolean(model));
+
+const DEFAULT_HUGGINGFACE_EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2";
+
+function getPreferredFineTunedEmbeddingModel(): string | null {
+  const model = process.env.HUGGINGFACE_FINETUNED_EMBED_MODEL?.trim();
+  const enabled = process.env.CUSTOM_FINETUNE_ENABLED !== "false";
+
+  if (!enabled || !model) {
+    return null;
+  }
+
+  return model;
+}
+
+function getActiveHuggingFaceEmbedModel(): string {
+  return (
+    getPreferredFineTunedEmbeddingModel() ??
+    process.env.HUGGINGFACE_EMBED_MODEL ??
+    DEFAULT_HUGGINGFACE_EMBED_MODEL
+  );
+}
 
 const STOPWORDS = new Set([
   "the",
@@ -143,6 +165,26 @@ function extractIntentKeywords(text: string, limit = 8): string[] {
     .slice(0, limit);
 }
 
+function buildRetrievalQueries(jobDescription: string): string[] {
+  const base = jobDescription.replace(/\s+/g, " ").trim();
+  if (!base) {
+    return [];
+  }
+
+  const intentTerms = extractIntentKeywords(base, 12);
+  const intentFocused = intentTerms.length
+    ? `priority hiring intents: ${intentTerms.slice(0, 8).join(", ")}`
+    : "";
+  const requirementLines = base
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 24)
+    .slice(0, 2)
+    .join(" ");
+
+  return [base, intentFocused, requirementLines].filter((entry) => entry.length > 0);
+}
+
 function extractNumericVectors(value: unknown, depth = 0): number[][] {
   if (depth > 4 || !Array.isArray(value)) {
     return [];
@@ -201,7 +243,7 @@ async function embedWithHuggingFace(text: string): Promise<number[] | null> {
     return null;
   }
 
-  const modelName = process.env.HUGGINGFACE_EMBED_MODEL || "sentence-transformers/all-MiniLM-L6-v2";
+  const modelName = getActiveHuggingFaceEmbedModel();
   const endpoint = `https://api-inference.huggingface.co/pipeline/feature-extraction/${encodeURIComponent(modelName)}`;
 
   try {
@@ -350,6 +392,7 @@ export async function POST(req: Request) {
     if (!jobEmbedding) {
       return NextResponse.json(heuristic);
     }
+    const retrievalQueries = buildRetrievalQueries(jobDescription);
 
     const chunks = splitIntoChunks(resumeText, 90, 20, 10);
     if (!chunks.length) {
@@ -408,7 +451,7 @@ export async function POST(req: Request) {
           embeddingProvider: jobEmbedding.provider,
           embeddingModel:
             jobEmbedding.provider === "huggingface-sentence-transformers"
-              ? process.env.HUGGINGFACE_EMBED_MODEL || "sentence-transformers/all-MiniLM-L6-v2"
+              ? getActiveHuggingFaceEmbedModel()
               : process.env.GEMINI_EMBED_MODEL || "text-embedding-004",
           metadata: {
             source: "hr-batch",
@@ -417,17 +460,47 @@ export async function POST(req: Request) {
         });
       }
 
-      const memoryMatches = await searchVectorDocuments({
-        namespace,
-        userId,
-        queryEmbedding: jobEmbedding.vector,
-        topK: 2,
-        minSimilarity: 0.42,
-        scanLimit: 260,
-        excludeDocumentKey: documentKey,
-      });
+      const historicalByChunk = new Map<string, { content: string; similarity: number }>();
+      const querySet = retrievalQueries.length ? retrievalQueries : [jobDescription];
 
-      memoryEvidence = memoryMatches.map((match) => ({
+      for (const query of querySet.slice(0, 3)) {
+        const queryEmbeddingResult =
+          query === jobDescription
+            ? jobEmbedding
+            : await embedText(query, genAI, jobEmbedding.provider);
+
+        if (!queryEmbeddingResult) {
+          continue;
+        }
+
+        const memoryMatches = await searchVectorDocuments({
+          namespace,
+          userId,
+          queryEmbedding: queryEmbeddingResult.vector,
+          queryText: query,
+          topK: 2,
+          minSimilarity: 0.42,
+          scanLimit: 280,
+          excludeDocumentKey: documentKey,
+          blendAlpha: 0.8,
+        });
+
+        for (const match of memoryMatches) {
+          const key = `${match.documentKey}:${match.chunkIndex}`;
+          const current = historicalByChunk.get(key);
+          if (!current || match.similarity > current.similarity) {
+            historicalByChunk.set(key, {
+              content: match.content,
+              similarity: match.similarity,
+            });
+          }
+        }
+      }
+
+      memoryEvidence = [...historicalByChunk.values()]
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 2)
+        .map((match) => ({
         snippet: clipText(match.content),
         similarity_score: clampScore(((match.similarity + 1) / 2) * 100),
         why_it_matters: "Historical high-match candidate evidence from earlier HR analyses.",
@@ -445,12 +518,29 @@ export async function POST(req: Request) {
 
     const score = clampScore(avgSimilarity * 0.72 + heuristic.semantic_match_score * 0.28);
 
+    if (userId) {
+      await recordFineTuneSample({
+        userId,
+        namespace: "hr_candidates",
+        jobDescription,
+        resumeText,
+        semanticMatchScore: score,
+        embeddingProvider: jobEmbedding.provider,
+        missingIntents: heuristic.missing_intents,
+        topEvidence: combinedEvidence,
+        metadata: {
+          source: "api-hr-semantic",
+          file_name: fileName,
+        },
+      });
+    }
+
     return NextResponse.json({
       semantic_match_score: score,
       coverage_summary:
         memoryEvidence.length > 0
-          ? `Embedding retrieval found current resume evidence plus ${memoryEvidence.length} historical HR memory hit(s).`
-          : "Embedding retrieval matched this resume against JD intent.",
+          ? `Hybrid retrieval orchestrated ${Math.min(3, retrievalQueries.length || 1)} query path(s) and found ${memoryEvidence.length} historical HR memory hit(s).`
+          : "Hybrid retrieval matched this resume against JD intent.",
       missing_intents: heuristic.missing_intents,
       top_evidence: combinedEvidence,
       retrieval_mode: "embedding",

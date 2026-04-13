@@ -8,6 +8,7 @@ import {
 } from '@/lib/subscriptionPlans';
 import { getAuthenticatedUserWithTier } from '@/lib/subscriptionServer';
 import { searchVectorDocuments, upsertVectorDocument } from '@/lib/vectorMemoryServer';
+import { recordFineTuneSample } from '@/lib/fineTuneServer';
 
 const DEFAULT_MODEL_CANDIDATES = [
   process.env.GEMINI_MODEL,
@@ -21,6 +22,27 @@ const EMBEDDING_MODEL_CANDIDATES = [
   'text-embedding-004',
   'embedding-001',
 ].filter((model): model is string => Boolean(model));
+
+const DEFAULT_HUGGINGFACE_EMBED_MODEL = 'sentence-transformers/all-MiniLM-L6-v2';
+
+function getPreferredFineTunedEmbeddingModel(): string | null {
+  const model = process.env.HUGGINGFACE_FINETUNED_EMBED_MODEL?.trim();
+  const enabled = process.env.CUSTOM_FINETUNE_ENABLED !== 'false';
+
+  if (!enabled || !model) {
+    return null;
+  }
+
+  return model;
+}
+
+function getActiveHuggingFaceEmbedModel(): string {
+  return (
+    getPreferredFineTunedEmbeddingModel() ??
+    process.env.HUGGINGFACE_EMBED_MODEL ??
+    DEFAULT_HUGGINGFACE_EMBED_MODEL
+  );
+}
 
 const SEMANTIC_STOPWORDS = new Set([
   'a',
@@ -627,7 +649,7 @@ async function embedWithHuggingFace(text: string): Promise<number[] | null> {
     return null;
   }
 
-  const modelName = process.env.HUGGINGFACE_EMBED_MODEL || 'sentence-transformers/all-MiniLM-L6-v2';
+  const modelName = getActiveHuggingFaceEmbedModel();
   const endpoint = `https://api-inference.huggingface.co/pipeline/feature-extraction/${encodeURIComponent(modelName)}`;
 
   try {
@@ -677,6 +699,26 @@ function extractIntentKeywords(text: string, limit: number): string[] {
     })
     .map(([token]) => token)
     .slice(0, limit);
+}
+
+function buildRetrievalQueries(jobDescription: string): string[] {
+  const base = jobDescription.replace(/\s+/g, ' ').trim();
+  if (!base) {
+    return [];
+  }
+
+  const intentTerms = extractIntentKeywords(base, 12);
+  const intentFocused = intentTerms.length
+    ? `priority skills and responsibilities: ${intentTerms.slice(0, 8).join(', ')}`
+    : '';
+  const requirementLines = base
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 24)
+    .slice(0, 2)
+    .join(' ');
+
+  return [base, intentFocused, requirementLines].filter((entry) => entry.length > 0);
 }
 
 function buildHeuristicSemanticRagInsights(
@@ -819,6 +861,7 @@ async function buildSemanticRagInsights(params: {
   if (!jobEmbedding) {
     return heuristicInsights;
   }
+  const retrievalQueries = buildRetrievalQueries(jobDescription);
 
   const chunks = splitIntoSemanticChunks(resumeText, 95, 24, 12);
   if (!chunks.length) {
@@ -881,7 +924,7 @@ async function buildSemanticRagInsights(params: {
         embeddingProvider: jobEmbedding.provider,
         embeddingModel:
           jobEmbedding.provider === 'huggingface-sentence-transformers'
-            ? (process.env.HUGGINGFACE_EMBED_MODEL || 'sentence-transformers/all-MiniLM-L6-v2')
+            ? getActiveHuggingFaceEmbedModel()
             : (process.env.GEMINI_EMBED_MODEL || 'text-embedding-004'),
         metadata: {
           source: 'resume-analysis',
@@ -889,17 +932,48 @@ async function buildSemanticRagInsights(params: {
       });
     }
 
-    const historicalMatches = await searchVectorDocuments({
-      namespace,
-      userId,
-      queryEmbedding: jobEmbedding.vector,
-      topK: 2,
-      minSimilarity: 0.42,
-      scanLimit: 260,
-      excludeDocumentKey: documentKey,
-    });
+    const historicalByChunk = new Map<string, { content: string; similarity: number }>();
+    const querySet = retrievalQueries.length ? retrievalQueries : [jobDescription];
 
-    memoryEvidence = historicalMatches.map((match, index) => ({
+    for (const query of querySet.slice(0, 3)) {
+      const queryEmbeddingResult =
+        query === jobDescription
+          ? jobEmbedding
+          : await embedText(genAI, query, jobEmbedding.provider);
+
+      if (!queryEmbeddingResult) {
+        continue;
+      }
+
+      const historicalMatches = await searchVectorDocuments({
+        namespace,
+        userId,
+        queryEmbedding: queryEmbeddingResult.vector,
+        queryText: query,
+        topK: 2,
+        minSimilarity: 0.42,
+        scanLimit: 280,
+        excludeDocumentKey: documentKey,
+        blendAlpha: 0.8,
+      });
+
+      for (const match of historicalMatches) {
+        const key = `${match.documentKey}:${match.chunkIndex}`;
+        const current = historicalByChunk.get(key);
+
+        if (!current || match.similarity > current.similarity) {
+          historicalByChunk.set(key, {
+            content: match.content,
+            similarity: match.similarity,
+          });
+        }
+      }
+    }
+
+    memoryEvidence = [...historicalByChunk.values()]
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, 2)
+      .map((match, index) => ({
       snippet: clipSnippet(match.content),
       similarity_score: clampScore(((match.similarity + 1) / 2) * 100),
       why_it_matters:
@@ -926,8 +1000,8 @@ async function buildSemanticRagInsights(params: {
     semantic_match_score: semanticMatchScore,
     coverage_summary:
       memoryEvidence.length > 0
-        ? `Embedding retrieval matched current resume chunks and ${memoryEvidence.length} historical memory hit(s) using ${jobEmbedding.provider === 'huggingface-sentence-transformers' ? 'Sentence-Transformers' : 'Gemini embeddings'}.`
-        : `Embedding retrieval matched ${topEvidence.length} high-similarity resume evidence chunks against the job description intent using ${jobEmbedding.provider === 'huggingface-sentence-transformers' ? 'Sentence-Transformers' : 'Gemini embeddings'}.`,
+        ? `Hybrid retrieval orchestrated ${Math.min(3, retrievalQueries.length || 1)} query path(s), matched current chunks, and found ${memoryEvidence.length} historical memory hit(s) using ${jobEmbedding.provider === 'huggingface-sentence-transformers' ? 'Sentence-Transformers' : 'Gemini embeddings'}.`
+        : `Hybrid retrieval orchestrated current role intent and matched ${topEvidence.length} high-similarity resume chunks using ${jobEmbedding.provider === 'huggingface-sentence-transformers' ? 'Sentence-Transformers' : 'Gemini embeddings'}.`,
     missing_intents: heuristicInsights.missing_intents,
     top_evidence: combinedEvidence,
     retrieval_mode: 'embedding',
@@ -2320,6 +2394,23 @@ export async function POST(req: Request) {
       jobDescription,
       userId: authenticatedUserId,
     });
+
+    if (authenticatedUserId && jobDescription.trim()) {
+      await recordFineTuneSample({
+        userId: authenticatedUserId,
+        namespace: 'resume_analysis',
+        jobDescription,
+        resumeText,
+        semanticMatchScore: semanticRagInsights.semantic_match_score,
+        embeddingProvider: semanticRagInsights.embedding_provider,
+        missingIntents: semanticRagInsights.missing_intents,
+        topEvidence: semanticRagInsights.top_evidence,
+        metadata: {
+          source: 'api-analyze',
+          retrieval_mode: semanticRagInsights.retrieval_mode,
+        },
+      });
+    }
 
     const userMessage = `Resume:\n${resumeText.slice(0, 4000)}${jobDescription ? '\n\nJob Description:\n' + jobDescription.slice(0, 2000) : ''}`;
 

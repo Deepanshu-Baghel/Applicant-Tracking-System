@@ -32,6 +32,9 @@ Open http://localhost:3000.
 - GEMINI_API_KEY
 - HUGGINGFACE_API_KEY (optional, enables sentence-transformers embedding provider)
 - HUGGINGFACE_EMBED_MODEL (optional, default: sentence-transformers/all-MiniLM-L6-v2)
+- HUGGINGFACE_FINETUNED_EMBED_MODEL (optional, your custom fine-tuned embedding model id)
+- CUSTOM_FINETUNE_ENABLED (optional, default true)
+- FINETUNE_DATA_CAPTURE (optional, set false to disable sample logging)
 - RAZORPAY_KEY_ID
 - RAZORPAY_KEY_SECRET
 
@@ -39,10 +42,13 @@ Open http://localhost:3000.
 
 - Free tier has basic-only access.
 - Pro and Premium subscriptions unlock tier-specific modules.
-- Long-term semantic memory now uses the Supabase `vector_documents` table (run `supabase/migrations/20260413_vector_memory.sql`).
-- Normal analysis and HR batch scoring both use semantic retrieval with historical memory fallback.
+- Long-term semantic memory uses Supabase `vector_documents` with pgvector hybrid search.
+- Run migrations in order:
+  - `supabase/migrations/20260413_vector_memory.sql`
+  - `supabase/migrations/20260413_vector_memory_hybrid.sql`
+  - `supabase/migrations/20260413_finetune_samples.sql`
+- Normal analysis and HR batch scoring use multi-query hybrid retrieval (vector + lexical blending) with historical memory fallback.
+- Fine-tune samples are captured server-side and can be exported from `GET /api/fine-tune/export?format=jsonl`.
 - Legacy buy routes redirect to /billing.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-> > > > > > > master
