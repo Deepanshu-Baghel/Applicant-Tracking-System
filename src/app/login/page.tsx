@@ -67,6 +67,10 @@ export default function LoginPage() {
     
     try {
       if (isLogin) {
+        if (!supabase) {
+          throw new Error("Supabase is not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to your .env.local file.");
+        }
+
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         router.replace("/upload");
