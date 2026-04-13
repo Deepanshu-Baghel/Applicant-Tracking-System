@@ -164,6 +164,7 @@ type SemanticRagInsights = {
   missing_intents: string[];
   top_evidence: SemanticRagEvidenceItem[];
   retrieval_mode: "embedding" | "heuristic";
+  embedding_provider?: "huggingface-sentence-transformers" | "gemini" | null;
 };
 
 type AnalysisReport = {
@@ -812,6 +813,10 @@ function normalizeSemanticRagInsights(raw: unknown): SemanticRagInsights | null 
     source.retrieval_mode === "embedding" || source.retrieval_mode === "heuristic"
       ? source.retrieval_mode
       : "heuristic";
+  const embeddingProvider =
+    source.embedding_provider === "huggingface-sentence-transformers" || source.embedding_provider === "gemini"
+      ? source.embedding_provider
+      : null;
 
   const topEvidence = Array.isArray(source.top_evidence)
     ? source.top_evidence
@@ -854,6 +859,7 @@ function normalizeSemanticRagInsights(raw: unknown): SemanticRagInsights | null 
     missing_intents: normalizeStringList(source.missing_intents, 5),
     top_evidence: topEvidence,
     retrieval_mode: retrievalMode,
+    embedding_provider: embeddingProvider,
   };
 }
 
@@ -1544,7 +1550,11 @@ export default function AnalysisPage() {
                   </p>
                 </div>
                 <span className="px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider bg-primary-500/10 text-primary-600">
-                  {semanticRagInsights.retrieval_mode === "embedding" ? "Embedding RAG" : "Heuristic RAG"}
+                  {semanticRagInsights.retrieval_mode === "embedding"
+                    ? semanticRagInsights.embedding_provider === "huggingface-sentence-transformers"
+                      ? "Embedding RAG · Sentence-Transformers"
+                      : "Embedding RAG · Gemini"
+                    : "Heuristic RAG"}
                 </span>
               </div>
 

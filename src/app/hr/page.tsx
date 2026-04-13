@@ -65,6 +65,13 @@ type CandidateVariant = {
   actions: string[];
 };
 
+type HrSemanticScoreResponse = {
+  semantic_match_score?: unknown;
+  retrieval_mode?: unknown;
+  embedding_provider?: unknown;
+  missing_intents?: unknown;
+};
+
 function severityStyles(severity: FlagSeverity): string {
   if (severity === "High") {
     return "bg-rose-500/15 text-rose-600";
@@ -373,6 +380,9 @@ export default function HrToolPage() {
     setProgress(0);
 
     const results: CandidateAnalysis[] = [];
+    const {
+      data: { session },
+    } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
 
     for (let index = 0; index < files.length; index += 1) {
       const file = files[index];
@@ -385,7 +395,61 @@ export default function HrToolPage() {
           throw new Error("Insufficient extractable text");
         }
 
-        const analysis = analyzeCandidate(file.name, normalizedText, jdText);
+        let analysis = analyzeCandidate(file.name, normalizedText, jdText);
+
+        if (session?.access_token) {
+          try {
+            const semanticResponse = await fetch("/api/hr/semantic-score", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.access_token}`,
+              },
+              body: JSON.stringify({
+                fileName: file.name,
+                resumeText: normalizedText,
+                jobDescription: jdText,
+              }),
+            });
+
+            if (semanticResponse.ok) {
+              const semanticPayload = (await semanticResponse.json()) as HrSemanticScoreResponse;
+              const semanticScore =
+                typeof semanticPayload.semantic_match_score === "number" && Number.isFinite(semanticPayload.semantic_match_score)
+                  ? clampScore(semanticPayload.semantic_match_score)
+                  : null;
+
+              if (semanticScore !== null) {
+                const blendedScore = clampScore(analysis.jdMatchScore * 0.72 + semanticScore * 0.28);
+                const providerLabel =
+                  semanticPayload.embedding_provider === "huggingface-sentence-transformers"
+                    ? "Sentence-Transformers"
+                    : semanticPayload.embedding_provider === "gemini"
+                      ? "Gemini"
+                      : "Heuristic";
+                const missingIntents = Array.isArray(semanticPayload.missing_intents)
+                  ? semanticPayload.missing_intents.filter(
+                      (item): item is string => typeof item === "string" && item.trim().length > 0
+                    )
+                  : [];
+
+                analysis = {
+                  ...analysis,
+                  matchScore: blendedScore,
+                  jdMatchScore: blendedScore,
+                  rankingReason: `${analysis.rankingReason} Semantic memory score ${semanticScore}% (${providerLabel}).${
+                    missingIntents.length
+                      ? ` Intent gaps: ${missingIntents.slice(0, 3).join(", ")}.`
+                      : ""
+                  }`,
+                };
+              }
+            }
+          } catch {
+            // Keep baseline keyword analysis when semantic endpoint is unavailable.
+          }
+        }
+
         results.push(analysis);
       } catch {
         results.push({
@@ -418,10 +482,6 @@ export default function HrToolPage() {
     let proEnabledForBatch = false;
     let premiumEnabledForBatch = subscriptionTier === "premium";
     const hasProSubscription = subscriptionTier === "pro" || subscriptionTier === "premium";
-
-    const {
-      data: { session },
-    } = supabase ? await supabase.auth.getSession() : { data: { session: null } };
 
     if (hasProSubscription) {
       proEnabledForBatch = true;

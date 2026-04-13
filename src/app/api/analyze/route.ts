@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { createHash } from 'crypto';
 import { detectMissingCoreSections, getExampleResumeTextTemplate } from '@/utils/resumeQuality';
 import {
   getTierFeatureAccess,
   type SubscriptionTier,
 } from '@/lib/subscriptionPlans';
 import { getAuthenticatedUserWithTier } from '@/lib/subscriptionServer';
+import { searchVectorDocuments, upsertVectorDocument } from '@/lib/vectorMemoryServer';
 
 const DEFAULT_MODEL_CANDIDATES = [
   process.env.GEMINI_MODEL,
@@ -457,6 +459,13 @@ type SkillRoiPlanner = {
   skills: SkillRoiPlanItem[];
 };
 
+type EmbeddingProvider = 'huggingface-sentence-transformers' | 'gemini';
+
+type EmbeddingVectorResult = {
+  vector: number[];
+  provider: EmbeddingProvider;
+};
+
 type SemanticRagEvidenceItem = {
   snippet: string;
   similarity_score: number;
@@ -470,6 +479,7 @@ type SemanticRagInsights = {
   missing_intents: string[];
   top_evidence: SemanticRagEvidenceItem[];
   retrieval_mode: 'embedding' | 'heuristic';
+  embedding_provider: EmbeddingProvider | null;
 };
 
 function atsStatusFromScore(score: number): AtsPlatformStatus {
@@ -559,6 +569,93 @@ function splitIntoSemanticChunks(text: string, targetWords = 90, overlapWords = 
   return chunks;
 }
 
+function extractNumericVectors(value: unknown, depth = 0): number[][] {
+  if (depth > 4 || !Array.isArray(value)) {
+    return [];
+  }
+
+  if (value.length > 0 && value.every((item) => typeof item === 'number' && Number.isFinite(item))) {
+    return [value as number[]];
+  }
+
+  const vectors: number[][] = [];
+  for (const item of value.slice(0, 256)) {
+    vectors.push(...extractNumericVectors(item, depth + 1));
+  }
+
+  return vectors;
+}
+
+function meanPoolVectors(vectors: number[][]): number[] | null {
+  if (!vectors.length || !vectors[0].length) {
+    return null;
+  }
+
+  const dimension = vectors[0].length;
+  const aligned = vectors.filter((vector) => vector.length === dimension).slice(0, 256);
+  if (!aligned.length) {
+    return null;
+  }
+
+  const pooled = new Array<number>(dimension).fill(0);
+  for (const vector of aligned) {
+    for (let index = 0; index < dimension; index += 1) {
+      pooled[index] += vector[index];
+    }
+  }
+
+  return pooled.map((value) => value / aligned.length);
+}
+
+function parseHuggingFaceEmbedding(raw: unknown): number[] | null {
+  const vectors = extractNumericVectors(raw);
+  if (!vectors.length) {
+    return null;
+  }
+
+  if (vectors.length === 1) {
+    return normalizeEmbedding(vectors[0]);
+  }
+
+  const pooled = meanPoolVectors(vectors);
+  return pooled ? normalizeEmbedding(pooled) : normalizeEmbedding(vectors[0]);
+}
+
+async function embedWithHuggingFace(text: string): Promise<number[] | null> {
+  const apiKey = process.env.HUGGINGFACE_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
+
+  const modelName = process.env.HUGGINGFACE_EMBED_MODEL || 'sentence-transformers/all-MiniLM-L6-v2';
+  const endpoint = `https://api-inference.huggingface.co/pipeline/feature-extraction/${encodeURIComponent(modelName)}`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        inputs: text.slice(0, 3000),
+        options: {
+          wait_for_model: true,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as unknown;
+    return parseHuggingFaceEmbedding(payload);
+  } catch {
+    return null;
+  }
+}
+
 function extractIntentKeywords(text: string, limit: number): string[] {
   const tokens = text.toLowerCase().match(/[a-z][a-z0-9+.#-]{2,}/g) ?? [];
   const frequency = new Map<string, number>();
@@ -630,10 +727,11 @@ function buildHeuristicSemanticRagInsights(
     missing_intents: missingIntents,
     top_evidence: topEvidence,
     retrieval_mode: 'heuristic',
+    embedding_provider: null,
   };
 }
 
-async function embedText(genAI: GoogleGenerativeAI, text: string): Promise<number[] | null> {
+async function embedWithGemini(genAI: GoogleGenerativeAI, text: string): Promise<number[] | null> {
   const payload = text.replace(/\s+/g, ' ').trim();
   if (!payload) {
     return null;
@@ -666,20 +764,59 @@ async function embedText(genAI: GoogleGenerativeAI, text: string): Promise<numbe
   return null;
 }
 
+async function embedText(
+  genAI: GoogleGenerativeAI,
+  text: string,
+  preferredProvider?: EmbeddingProvider
+): Promise<EmbeddingVectorResult | null> {
+  const payload = text.replace(/\s+/g, ' ').trim();
+  if (!payload) {
+    return null;
+  }
+
+  const providers: EmbeddingProvider[] = preferredProvider
+    ? [preferredProvider]
+    : ['huggingface-sentence-transformers', 'gemini'];
+
+  for (const provider of providers) {
+    if (provider === 'huggingface-sentence-transformers') {
+      const vector = await embedWithHuggingFace(payload);
+      if (vector) {
+        return {
+          vector,
+          provider,
+        };
+      }
+      continue;
+    }
+
+    const vector = await embedWithGemini(genAI, payload);
+    if (vector) {
+      return {
+        vector,
+        provider: 'gemini',
+      };
+    }
+  }
+
+  return null;
+}
+
 async function buildSemanticRagInsights(params: {
   genAI: GoogleGenerativeAI;
   resumeText: string;
   jobDescription?: string;
+  userId?: string | null;
 }): Promise<SemanticRagInsights> {
-  const { genAI, resumeText, jobDescription } = params;
+  const { genAI, resumeText, jobDescription, userId } = params;
   const heuristicInsights = buildHeuristicSemanticRagInsights(resumeText, jobDescription);
 
   if (!jobDescription || !jobDescription.trim()) {
     return heuristicInsights;
   }
 
-  const jobVector = await embedText(genAI, jobDescription);
-  if (!jobVector) {
+  const jobEmbedding = await embedText(genAI, jobDescription);
+  if (!jobEmbedding) {
     return heuristicInsights;
   }
 
@@ -688,16 +825,19 @@ async function buildSemanticRagInsights(params: {
     return heuristicInsights;
   }
 
-  const scoredChunks: Array<{ snippet: string; rawSimilarity: number }> = [];
-  for (const chunk of chunks) {
-    const chunkVector = await embedText(genAI, chunk);
-    if (!chunkVector) {
+  const scoredChunks: Array<{ snippet: string; rawSimilarity: number; vector: number[]; chunkIndex: number }> = [];
+  for (let index = 0; index < chunks.length; index += 1) {
+    const chunk = chunks[index];
+    const chunkEmbedding = await embedText(genAI, chunk, jobEmbedding.provider);
+    if (!chunkEmbedding) {
       continue;
     }
 
     scoredChunks.push({
       snippet: chunk,
-      rawSimilarity: cosineSimilarity(jobVector, chunkVector),
+      rawSimilarity: cosineSimilarity(jobEmbedding.vector, chunkEmbedding.vector),
+      vector: chunkEmbedding.vector,
+      chunkIndex: index,
     });
   }
 
@@ -705,7 +845,8 @@ async function buildSemanticRagInsights(params: {
     return heuristicInsights;
   }
 
-  const topScored = scoredChunks
+  const sortedScored = [...scoredChunks].sort((a, b) => b.rawSimilarity - a.rawSimilarity);
+  const topScored = sortedScored
     .sort((a, b) => b.rawSimilarity - a.rawSimilarity)
     .slice(0, 3);
 
@@ -724,9 +865,58 @@ async function buildSemanticRagInsights(params: {
     };
   });
 
+  let memoryEvidence: SemanticRagEvidenceItem[] = [];
+  if (userId) {
+    const namespace = 'resume_analysis';
+    const documentKey = createHash('sha256').update(resumeText).digest('hex').slice(0, 24);
+
+    for (const entry of sortedScored.slice(0, 8)) {
+      await upsertVectorDocument({
+        namespace,
+        userId,
+        documentKey,
+        chunkIndex: entry.chunkIndex,
+        content: clipSnippet(entry.snippet, 320),
+        embedding: entry.vector,
+        embeddingProvider: jobEmbedding.provider,
+        embeddingModel:
+          jobEmbedding.provider === 'huggingface-sentence-transformers'
+            ? (process.env.HUGGINGFACE_EMBED_MODEL || 'sentence-transformers/all-MiniLM-L6-v2')
+            : (process.env.GEMINI_EMBED_MODEL || 'text-embedding-004'),
+        metadata: {
+          source: 'resume-analysis',
+        },
+      });
+    }
+
+    const historicalMatches = await searchVectorDocuments({
+      namespace,
+      userId,
+      queryEmbedding: jobEmbedding.vector,
+      topK: 2,
+      minSimilarity: 0.42,
+      scanLimit: 260,
+      excludeDocumentKey: documentKey,
+    });
+
+    memoryEvidence = historicalMatches.map((match, index) => ({
+      snippet: clipSnippet(match.content),
+      similarity_score: clampScore(((match.similarity + 1) / 2) * 100),
+      why_it_matters:
+        index === 0
+          ? 'High-similarity evidence from your previous analyses supports this role intent.'
+          : 'Historical resume evidence reinforces recurring role-fit signals.',
+      source: 'resume',
+    }));
+  }
+
+  const combinedEvidence = [...topEvidence, ...memoryEvidence]
+    .sort((a, b) => b.similarity_score - a.similarity_score)
+    .slice(0, 3);
+
   const averageSimilarity =
-    topEvidence.reduce((sum, entry) => sum + entry.similarity_score, 0) /
-    Math.max(1, topEvidence.length);
+    combinedEvidence.reduce((sum, entry) => sum + entry.similarity_score, 0) /
+    Math.max(1, combinedEvidence.length);
 
   const semanticMatchScore = clampScore(
     averageSimilarity * 0.72 + heuristicInsights.semantic_match_score * 0.28
@@ -734,10 +924,14 @@ async function buildSemanticRagInsights(params: {
 
   return {
     semantic_match_score: semanticMatchScore,
-    coverage_summary: `Embedding retrieval matched ${topEvidence.length} high-similarity resume evidence chunks against the job description intent.`,
+    coverage_summary:
+      memoryEvidence.length > 0
+        ? `Embedding retrieval matched current resume chunks and ${memoryEvidence.length} historical memory hit(s) using ${jobEmbedding.provider === 'huggingface-sentence-transformers' ? 'Sentence-Transformers' : 'Gemini embeddings'}.`
+        : `Embedding retrieval matched ${topEvidence.length} high-similarity resume evidence chunks against the job description intent using ${jobEmbedding.provider === 'huggingface-sentence-transformers' ? 'Sentence-Transformers' : 'Gemini embeddings'}.`,
     missing_intents: heuristicInsights.missing_intents,
-    top_evidence: topEvidence,
+    top_evidence: combinedEvidence,
     retrieval_mode: 'embedding',
+    embedding_provider: jobEmbedding.provider,
   };
 }
 
@@ -765,6 +959,10 @@ function normalizeSemanticRagInsightsPayload(
     source.retrieval_mode === 'embedding' || source.retrieval_mode === 'heuristic'
       ? source.retrieval_mode
       : fallback.retrieval_mode;
+  const embeddingProvider =
+    source.embedding_provider === 'huggingface-sentence-transformers' || source.embedding_provider === 'gemini'
+      ? source.embedding_provider
+      : fallback.embedding_provider;
 
   const topEvidence = Array.isArray(source.top_evidence)
     ? source.top_evidence
@@ -808,6 +1006,7 @@ function normalizeSemanticRagInsightsPayload(
     missing_intents: missingIntents.length ? missingIntents : fallback.missing_intents,
     top_evidence: topEvidence.length ? topEvidence : fallback.top_evidence,
     retrieval_mode: retrievalMode,
+    embedding_provider: embeddingProvider,
   };
 }
 
@@ -2119,6 +2318,7 @@ export async function POST(req: Request) {
       genAI,
       resumeText,
       jobDescription,
+      userId: authenticatedUserId,
     });
 
     const userMessage = `Resume:\n${resumeText.slice(0, 4000)}${jobDescription ? '\n\nJob Description:\n' + jobDescription.slice(0, 2000) : ''}`;
@@ -2266,7 +2466,8 @@ export async function POST(req: Request) {
         "source": "resume" | "job_description"
       }
     ],
-    "retrieval_mode": "embedding" | "heuristic"
+    "retrieval_mode": "embedding" | "heuristic",
+    "embedding_provider": "huggingface-sentence-transformers" | "gemini" | null
   },
   "tone_analysis": {
     "dominant_tone": "Confident" | "Aggressive" | "Passive" | "Vague",

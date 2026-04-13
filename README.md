@@ -30,13 +30,17 @@ Open http://localhost:3000.
 - NEXT_PUBLIC_SUPABASE_ANON_KEY
 - SUPABASE_SERVICE_ROLE_KEY
 - GEMINI_API_KEY
+- HUGGINGFACE_API_KEY (optional, enables sentence-transformers embedding provider)
+- HUGGINGFACE_EMBED_MODEL (optional, default: sentence-transformers/all-MiniLM-L6-v2)
 - RAZORPAY_KEY_ID
 - RAZORPAY_KEY_SECRET
 
 ### Notes
 
-- Free tier uses credits for Pro unlocks.
+- Free tier has basic-only access.
 - Pro and Premium subscriptions unlock tier-specific modules.
+- Long-term semantic memory now uses the Supabase `vector_documents` table (run `supabase/migrations/20260413_vector_memory.sql`).
+- Normal analysis and HR batch scoring both use semantic retrieval with historical memory fallback.
 - Legacy buy routes redirect to /billing.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
