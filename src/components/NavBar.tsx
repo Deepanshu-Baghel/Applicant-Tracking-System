@@ -158,7 +158,7 @@ export default function NavBar() {
             <FileText className="w-6 h-6 text-primary-500" />
           </div>
           <span className="font-heading font-bold text-xl tracking-tight">
-            Resume<span className="text-primary-500">IQ</span>
+            WebResume<span className="text-primary-500">.tech</span>
           </span>
         </Link>
         

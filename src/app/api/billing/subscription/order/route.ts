@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     const orderPayload = {
       amount: plan.priceInrMonthly * 100,
       currency: "INR",
-      receipt: `resumeiq-sub-${authUser.userId.slice(0, 8)}-${Date.now()}`,
+      receipt: `webresume-sub-${authUser.userId.slice(0, 8)}-${Date.now()}`,
       notes: {
         subscription_tier: tier,
       },

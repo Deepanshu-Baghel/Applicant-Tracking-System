@@ -1,6 +1,6 @@
-## ResumeIQ - Applicant Tracking and Resume Intelligence
+## WebResume.tech - Applicant Tracking and Resume Intelligence
 
-ResumeIQ is a Next.js app for candidate-side and recruiter-side intelligence.
+WebResume.tech is a Next.js app for candidate-side and recruiter-side intelligence.
 
 ### Core modules
 

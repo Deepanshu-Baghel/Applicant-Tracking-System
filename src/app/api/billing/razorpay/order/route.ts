@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const orderPayload = {
       amount: plan.priceInr * 100,
       currency: "INR",
-      receipt: `resumeiq-${userId.slice(0, 8)}-${Date.now()}`,
+      receipt: `webresume-${userId.slice(0, 8)}-${Date.now()}`,
       notes: {
         plan_id: plan.id,
         credits: String(plan.credits),

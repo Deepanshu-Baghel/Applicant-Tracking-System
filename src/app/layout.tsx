@@ -13,7 +13,7 @@ const outfit = Outfit({
 });
 
 export const metadata: Metadata = {
-  title: "ResumeIQ | AI Resume Analyser",
+  title: "WebResume.tech | AI Resume Analyser",
   description: "AI-powered resume analysis, ATS scoring, and salary negotiation hints.",
 };
 

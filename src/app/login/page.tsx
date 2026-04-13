@@ -115,7 +115,7 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-6 mt-16">
         <div className="glass-card w-full max-w-md p-8">
           <div className="flex items-center justify-center gap-2 mb-8 font-heading text-2xl font-bold">
-            <FileText className="w-8 h-8 text-primary-500" /> Resume<span className="text-primary-500">IQ</span>
+            <FileText className="w-8 h-8 text-primary-500" /> WebResume<span className="text-primary-500">.tech</span>
           </div>
           <p className="text-sm text-muted text-center mb-6">
             Sign in to access Resume Lab reports, Recruiter Suite tools, tier upgrades, and your saved report history.

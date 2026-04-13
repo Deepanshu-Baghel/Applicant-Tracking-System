@@ -121,7 +121,7 @@ export default function BillingPage() {
           key: order.keyId,
           amount: order.amount,
           currency: order.currency,
-          name: "ResumeIQ",
+          name: "WebResume.tech",
           description: `${order.plan.name} Monthly Subscription`,
           order_id: order.orderId,
           theme: { color: "#0f766e" },

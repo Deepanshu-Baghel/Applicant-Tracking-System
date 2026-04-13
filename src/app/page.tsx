@@ -221,9 +221,9 @@ export default function Home() {
       {/* Footer */}
       <footer className="py-12 border-t border-border text-center text-muted text-sm glass">
         <div className="flex items-center justify-center gap-2 mb-4 font-heading text-xl text-foreground font-bold">
-          <FileText className="w-5 h-5 text-primary-500" /> Resume<span className="text-primary-500">IQ</span>
+          <FileText className="w-5 h-5 text-primary-500" /> WebResume<span className="text-primary-500">.tech</span>
         </div>
-        <p>© 2026 ResumeIQ. From resume quality to offer confidence.</p>
+        <p>© 2026 WebResume.tech. From resume quality to offer confidence.</p>
       </footer>
     </main>
   );

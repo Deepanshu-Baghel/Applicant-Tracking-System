@@ -101,9 +101,9 @@ export default function OverviewPage() {
             <Crown className="w-3.5 h-3.5" /> Platform Overview
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-heading font-bold mb-4">ResumeIQ Product Overview</h1>
+          <h1 className="text-4xl md:text-5xl font-heading font-bold mb-4">WebResume.tech Product Overview</h1>
           <p className="text-muted text-base md:text-lg max-w-3xl leading-relaxed">
-            ResumeIQ combines candidate-side intelligence and recruiter-side workflows in one system: ATS simulation,
+            WebResume.tech combines candidate-side intelligence and recruiter-side workflows in one system: ATS simulation,
             rewrite intelligence, interview conversion strategy, and monetization-ready plan architecture.
           </p>
         </div>
