@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s | WebResume.tech",
   },
   description:
-    "AI resume analyzer for ATS scoring, keyword optimization, recruiter insights, and interview strategy.",
+    "WebResume.tech helps job seekers improve ATS score, fix keyword gaps, and build an interview-ready application strategy with recruiter-focused resume insights and role-specific guidance.",
   applicationName: "WebResume.tech",
   keywords: [
     "AI resume analyzer",

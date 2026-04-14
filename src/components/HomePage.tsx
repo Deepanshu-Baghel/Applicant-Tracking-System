@@ -6,6 +6,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+const businessEmail = process.env.NEXT_PUBLIC_BUSINESS_EMAIL ?? "support@webresume.tech";
+const businessPhone = process.env.NEXT_PUBLIC_BUSINESS_PHONE ?? "+91-00000-00000";
+const businessAddress = process.env.NEXT_PUBLIC_BUSINESS_ADDRESS ?? "Remote, India";
+
 const socialLinks = [
   {
     label: "Facebook",
@@ -18,6 +22,14 @@ const socialLinks = [
   {
     label: "Instagram",
     href: "https://www.instagram.com/webresume.tech",
+  },
+  {
+    label: "LinkedIn",
+    href: "https://www.linkedin.com/company/webresume-tech",
+  },
+  {
+    label: "YouTube",
+    href: "https://www.youtube.com/@webresumetech",
   },
 ];
 
@@ -153,6 +165,41 @@ export default function HomePage() {
 
       <section className="py-16 border-b border-border bg-background">
         <div className="max-w-5xl mx-auto px-6">
+          <h2 className="text-2xl md:text-3xl font-heading font-bold mb-5 text-center">Who Should Use WebResume.tech</h2>
+          <p className="text-muted leading-relaxed text-center">
+            WebResume.tech is designed for students, freshers, experienced professionals, and career switchers who want
+            better ATS compatibility, stronger recruiter readability, and clearer interview conversion outcomes.
+            Recruiters and hiring teams can use the same platform to run batch resume comparisons and shortlist candidates
+            faster with consistent screening signals.
+          </p>
+          <div className="grid md:grid-cols-3 gap-4 mt-8">
+            <article className="glass-card p-5">
+              <h3 className="font-heading font-semibold mb-2">For Students and Freshers</h3>
+              <p className="text-sm text-muted leading-relaxed">
+                Build your first ATS-friendly resume, align projects with role expectations, and avoid common screening
+                mistakes that reduce shortlist chances.
+              </p>
+            </article>
+            <article className="glass-card p-5">
+              <h3 className="font-heading font-semibold mb-2">For Working Professionals</h3>
+              <p className="text-sm text-muted leading-relaxed">
+                Improve role targeting, upgrade keyword relevance for better ATS parsing, and prepare stronger interview
+                stories for internal switches or external job moves.
+              </p>
+            </article>
+            <article className="glass-card p-5">
+              <h3 className="font-heading font-semibold mb-2">For Recruiters</h3>
+              <p className="text-sm text-muted leading-relaxed">
+                Screen high-volume applications with batch ranking, identify fit signals quickly, and export outreach-ready
+                shortlists with better confidence.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section className="py-16 border-b border-border bg-background">
+        <div className="max-w-5xl mx-auto px-6">
           <h2 className="text-2xl md:text-3xl font-heading font-bold mb-8 text-center">Resume SEO and ATS Optimization FAQs</h2>
           <div className="space-y-4">
             <article className="glass-card p-6">
@@ -241,6 +288,9 @@ export default function HomePage() {
             </a>
           ))}
         </div>
+        <p className="text-xs mb-1">Business email: {businessEmail}</p>
+        <p className="text-xs mb-1">Business phone: {businessPhone}</p>
+        <p className="text-xs mb-3">Business address: {businessAddress}</p>
         <p>© 2026 WebResume.tech. From resume quality to offer confidence.</p>
       </footer>
     </main>

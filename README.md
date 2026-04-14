@@ -39,6 +39,9 @@ Open http://localhost:3000.
 - NEXT_PUBLIC_AUTH_EMAIL_REDIRECT_URL (optional, default: https://www.webresume.tech/login)
 - NEXT_PUBLIC_GA_MEASUREMENT_ID (optional, enables Google Analytics tracking)
 - NEXT_PUBLIC_FB_PIXEL_ID (optional, enables Facebook Pixel tracking)
+- NEXT_PUBLIC_BUSINESS_EMAIL (optional, default: support@webresume.tech)
+- NEXT_PUBLIC_BUSINESS_PHONE (optional, default: +91-00000-00000)
+- NEXT_PUBLIC_BUSINESS_ADDRESS (optional, default: Remote, India)
 - RAZORPAY_KEY_ID
 - RAZORPAY_KEY_SECRET
 
@@ -53,6 +56,7 @@ Open http://localhost:3000.
   - `supabase/migrations/20260413_finetune_samples.sql`
 - Normal analysis and HR batch scoring use multi-query hybrid retrieval (vector + lexical blending) with historical memory fallback.
 - Fine-tune samples are captured server-side and can be exported from `GET /api/fine-tune/export?format=jsonl`.
+- Public `llms.txt` is available at `/llms.txt` for LLM crawler guidance.
 - Legacy buy routes redirect to /billing.
 
 ### SEO operations docs

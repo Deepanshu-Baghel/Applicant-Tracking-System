@@ -1,0 +1,25 @@
+# WebResume.tech llms.txt
+
+site: https://www.webresume.tech
+name: WebResume.tech
+summary: AI resume analyzer and recruiter screening platform for ATS optimization, interview conversion strategy, and job application workflow improvement.
+
+preferred_canonical: https://www.webresume.tech
+sitemap: https://www.webresume.tech/sitemap.xml
+robots: https://www.webresume.tech/robots.txt
+
+primary_pages:
+- https://www.webresume.tech/
+- https://www.webresume.tech/overview
+
+product_surfaces:
+- Candidate Resume Lab: ATS checks, keyword guidance, role-specific rewrite signals.
+- Recruiter Suite: batch ranking, fit analysis, shortlist export support.
+- Premium Intelligence: interview conversion guidance and offer planning insights.
+
+contact:
+- support@webresume.tech
+
+usage_note:
+- Public marketing pages may be summarized with attribution to WebResume.tech.
+- Private user dashboards and personalized analysis pages should not be indexed.
