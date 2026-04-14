@@ -1,8 +1,32 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Coins, Crown, Rocket, ShieldCheck, Target, TrendingUp, Users } from "lucide-react";
 import NavBar from "@/components/NavBar";
 import { CREDIT_PLANS, FEATURE_CREDIT_COST } from "@/lib/creditPlans";
 import { SUBSCRIPTION_PLANS } from "@/lib/subscriptionPlans";
+
+export const metadata: Metadata = {
+  title: "Resume Platform Overview and Pricing Comparison",
+  description:
+    "Compare WebResume.tech features, ATS resume analysis modules, recruiter suite capabilities, and Pro vs Premium pricing before choosing a plan.",
+  alternates: {
+    canonical: "/overview",
+  },
+  keywords: [
+    "resume platform overview",
+    "resume analysis pricing",
+    "ATS tool comparison",
+    "pro premium resume plans",
+    "recruiter suite features",
+  ],
+  openGraph: {
+    title: "Resume Platform Overview and Pricing Comparison",
+    description:
+      "Explore ATS analysis, recruiter tools, and Pro/Premium plan differences on WebResume.tech.",
+    url: "/overview",
+    type: "website",
+  },
+};
 
 const proFeatures = [
   {

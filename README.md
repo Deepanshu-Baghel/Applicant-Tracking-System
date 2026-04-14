@@ -28,6 +28,7 @@ Open http://localhost:3000.
 
 - NEXT_PUBLIC_SUPABASE_URL
 - NEXT_PUBLIC_SUPABASE_ANON_KEY
+- NEXT_PUBLIC_SITE_URL (optional, default: https://www.webresume.tech)
 - SUPABASE_SERVICE_ROLE_KEY
 - GEMINI_API_KEY
 - HUGGINGFACE_API_KEY (optional, enables sentence-transformers embedding provider)
