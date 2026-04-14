@@ -1,16 +1,8 @@
 import NavBar from "@/components/NavBar";
 import {
   ArrowRight,
-  FileCheck,
-  Target,
-  TrendingUp,
   Sparkles,
-  LayoutDashboard,
-  BrainCog,
   FileText,
-  Crown,
-  Eye,
-  Rocket,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -50,8 +42,8 @@ export default function HomePage() {
           </h1>
 
           <p className="text-lg md:text-xl text-muted max-w-2xl mx-auto mb-10 leading-relaxed">
-            Improve resume keywords, run ATS checks, compare recruiter screening signals, and generate interview and
-            salary negotiation strategy from one AI resume optimization workflow.
+            This AI resume analyzer improves ATS score, fixes resume keywords, and helps you build an offer-ready
+            strategy with recruiter screening insights, interview guidance, and salary negotiation support.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -88,63 +80,54 @@ export default function HomePage() {
           <div className="grid md:grid-cols-3 gap-6">
             {[
               {
-                icon: FileCheck,
                 title: "Company-Specific ATS Simulator",
                 desc: "Greenhouse, Lever, and Workday style compatibility with direct fixes.",
                 badge: "Pro",
               },
               {
-                icon: Eye,
                 title: "Recruiter 7-Second Eye Path",
                 desc: "Fold-by-fold attention map showing what recruiters scan first.",
                 badge: "Pro",
               },
               {
-                icon: BrainCog,
                 title: "Job-Tailored Resume Variants",
                 desc: "Generate focused resume angles for different role targets and application tracks.",
                 badge: "Pro",
               },
               {
-                icon: Rocket,
                 title: "Interview Conversion Predictor",
                 desc: "Get realistic interview-call probability with drivers, risks, and actions.",
                 badge: "Premium",
               },
               {
-                icon: Sparkles,
                 title: "Offer Negotiation Copilot",
                 desc: "Predicted salary, ask bands, rebuttal scripts, and close-ready lines.",
                 badge: "Premium",
               },
               {
-                icon: Crown,
                 title: "Application + Career Pack",
                 desc: "Application pack, career narrative graph, reachability score, and skill ROI planner.",
                 badge: "Premium",
               },
               {
-                icon: Target,
                 title: "Job Reachability Verdict",
                 desc: "Apply now, Upskill first, or Stretch verdict for your target role.",
                 badge: "Premium",
               },
               {
-                icon: TrendingUp,
                 title: "Skill ROI Planner",
                 desc: "See which skill gives max shortlist uplift and salary upside.",
                 badge: "Premium",
               },
               {
-                icon: LayoutDashboard,
                 title: "Recruiter HR Batch Suite",
                 desc: "Batch ranking, red-flag scan, ATS matrix, and outreach-ready shortlist exports.",
                 badge: "Pro/Premium",
               },
             ].map((f, i) => (
               <div key={i} className="glass-card p-8 group hover:-translate-y-1 transition-all duration-300">
-                <div className="w-12 h-12 rounded-xl bg-primary-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <f.icon className="w-6 h-6 text-primary-500" />
+                <div className="w-12 h-12 rounded-xl bg-primary-500/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform text-primary-500 text-xl font-bold">
+                  {String(i + 1).padStart(2, "0")}
                 </div>
                 <h4 className="text-xl font-heading font-bold mb-3 flex items-center gap-2">
                   {f.title}

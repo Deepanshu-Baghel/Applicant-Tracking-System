@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import HomePage from "@/components/HomePage";
 
 export const metadata: Metadata = {
-  title: "AI Resume Analyzer and ATS Score Checker",
+  title: "AI Resume Analyzer for ATS Score and Offer-Ready Strategy",
   description:
-    "Optimize your resume with ATS scoring, keyword fixes, recruiter insights, and interview guidance in one AI workflow.",
+    "Boost ATS score, fix resume keywords, and build an offer-ready job search strategy with AI recruiter insights.",
   alternates: {
     canonical: "/",
   },
@@ -18,17 +18,17 @@ export const metadata: Metadata = {
     "interview conversion predictor",
   ],
   openGraph: {
-    title: "AI Resume Analyzer and ATS Score Checker",
+    title: "AI Resume Analyzer for ATS Score and Offer-Ready Strategy",
     description:
-      "Run ATS checks, improve resume keywords, and boost recruiter shortlisting outcomes.",
+      "Boost ATS score, improve resume keywords, and build an offer-ready strategy with recruiter-focused insights.",
     url: "/",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "AI Resume Analyzer and ATS Score Checker",
+    title: "AI Resume Analyzer for ATS Score and Offer-Ready Strategy",
     description:
-      "Run ATS checks, optimize resume keywords, and improve recruiter shortlisting outcomes.",
+      "Boost ATS score, optimize resume keywords, and build an offer-ready strategy for interviews.",
   },
   robots: {
     index: true,
