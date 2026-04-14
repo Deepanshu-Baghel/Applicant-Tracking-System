@@ -44,3 +44,15 @@ th, td {
   font-size: 12px;
   display: inline-block;
 }
+
+.status-message {
+  margin-top: 10px;
+}
+
+.status-message.success {
+  color: #16a34a;
+}
+
+.status-message.error {
+  color: #dc2626;
+}

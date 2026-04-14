@@ -20,17 +20,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.9,
     },
-    {
-      url: getUrl("/buy-credits"),
-      lastModified,
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
-    {
-      url: getUrl("/buy-premium"),
-      lastModified,
-      changeFrequency: "monthly",
-      priority: 0.8,
-    },
   ];
 }

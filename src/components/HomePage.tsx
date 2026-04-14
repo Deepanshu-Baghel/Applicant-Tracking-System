@@ -1,7 +1,4 @@
-"use client";
-
 import NavBar from "@/components/NavBar";
-import { motion } from "framer-motion";
 import {
   ArrowRight,
   FileCheck,
@@ -26,6 +23,10 @@ const socialLinks = [
     label: "X",
     href: "https://x.com/webresumetech",
   },
+  {
+    label: "Instagram",
+    href: "https://www.instagram.com/webresume.tech",
+  },
 ];
 
 export default function HomePage() {
@@ -38,56 +39,31 @@ export default function HomePage() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] rounded-full bg-cyan-500/20 blur-[120px] pointer-events-none" />
 
         <div className="max-w-7xl mx-auto px-6 relative z-10 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary-500/20 bg-primary-500/5 backdrop-blur-md mb-8"
-          >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary-500/20 bg-primary-500/5 backdrop-blur-md mb-8">
             <Sparkles className="w-4 h-4 text-primary-500" />
             <span className="text-sm font-medium text-primary-500">2026 Updated Build: Pro + Premium Intelligence Stack</span>
-          </motion.div>
+          </div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="text-5xl md:text-7xl font-bold font-heading tracking-tight mb-6 leading-tight max-w-4xl mx-auto"
-          >
+          <h1 className="text-5xl md:text-7xl font-bold font-heading tracking-tight mb-6 leading-tight max-w-4xl mx-auto">
             AI Resume Analyzer for ATS Score<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-500 to-cyan-400">and Offer-Ready Strategy</span>
-          </motion.h1>
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="text-lg md:text-xl text-muted max-w-2xl mx-auto mb-10 leading-relaxed"
-          >
+          <p className="text-lg md:text-xl text-muted max-w-2xl mx-auto mb-10 leading-relaxed">
             Improve resume keywords, run ATS checks, compare recruiter screening signals, and generate interview and
             salary negotiation strategy from one AI resume optimization workflow.
-          </motion.p>
+          </p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
-          >
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/upload" className="w-full sm:w-auto px-8 py-4 rounded-full bg-primary-500 hover:bg-primary-600 text-white font-medium flex items-center justify-center gap-2 transition-all hover:scale-105 shadow-lg shadow-primary-500/25">
               Start AI Resume Lab <ArrowRight className="w-4 h-4" />
             </Link>
             <Link href="/overview" className="w-full sm:w-auto px-8 py-4 rounded-full glass hover:bg-white/5 border border-border text-foreground font-medium transition-all">
               Explore Pro + Premium Stack
             </Link>
-          </motion.div>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="mt-10 grid sm:grid-cols-3 gap-3 max-w-4xl mx-auto"
-          >
+          <div className="mt-10 grid sm:grid-cols-3 gap-3 max-w-4xl mx-auto">
             {[
               { label: "Pro Intelligence", value: "ATS + Eye Path + Variants" },
               { label: "Premium Intelligence", value: "Reachability + ROI + Offer Strategy" },
@@ -98,7 +74,7 @@ export default function HomePage() {
                 <p className="text-sm text-foreground mt-1">{item.value}</p>
               </div>
             ))}
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -189,6 +165,35 @@ export default function HomePage() {
             role-specific resume rewrite guidance. Candidates use it to increase profile relevance, improve ATS parsing
             outcomes, and convert more applications into interview calls.
           </p>
+        </div>
+      </section>
+
+      <section className="py-16 border-b border-border bg-background">
+        <div className="max-w-5xl mx-auto px-6">
+          <h2 className="text-2xl md:text-3xl font-heading font-bold mb-8 text-center">Resume SEO and ATS Optimization FAQs</h2>
+          <div className="space-y-4">
+            <article className="glass-card p-6">
+              <h3 className="text-lg font-heading font-semibold mb-2">How does this ATS score checker improve resume ranking?</h3>
+              <p className="text-muted text-sm leading-relaxed">
+                The analyzer highlights missing role keywords, weak section structure, and recruiter readability gaps so
+                you can rewrite high-impact lines and improve parsing confidence across common ATS systems.
+              </p>
+            </article>
+            <article className="glass-card p-6">
+              <h3 className="text-lg font-heading font-semibold mb-2">Can I tailor one resume for multiple job descriptions?</h3>
+              <p className="text-muted text-sm leading-relaxed">
+                Yes. WebResume.tech generates job-specific resume variants so candidates can target product, engineering,
+                operations, and analytics roles with stronger keyword alignment and clearer value statements.
+              </p>
+            </article>
+            <article className="glass-card p-6">
+              <h3 className="text-lg font-heading font-semibold mb-2">Is this useful after I already have interview calls?</h3>
+              <p className="text-muted text-sm leading-relaxed">
+                Absolutely. Beyond ATS and resume analysis, the platform includes interview conversion guidance,
+                application messaging support, and negotiation scripts to improve end-to-end job search outcomes.
+              </p>
+            </article>
+          </div>
         </div>
       </section>
 

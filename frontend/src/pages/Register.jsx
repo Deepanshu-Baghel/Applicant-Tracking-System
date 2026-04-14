@@ -31,7 +31,7 @@ const Register = () => {
       // ✅ REDIRECT TO SET PASSWORD (THIS IS THE LINE YOU ASKED ABOUT)
       setTimeout(() => navigate("/set-password"), 1500);
 
-    } catch (err) {
+    } catch {
       setError("Organization already exists or invalid data");
     }
   };
@@ -66,13 +66,13 @@ const Register = () => {
       </button>
 
       {success && (
-        <p style={{ color: "green", marginTop: 10 }}>
+        <p className="status-message success">
           Registration successful. Redirecting to set password…
         </p>
       )}
 
       {error && (
-        <p style={{ color: "red", marginTop: 10 }}>
+        <p className="status-message error">
           {error}
         </p>
       )}

@@ -6,9 +6,9 @@ import { CREDIT_PLANS, FEATURE_CREDIT_COST } from "@/lib/creditPlans";
 import { SUBSCRIPTION_PLANS } from "@/lib/subscriptionPlans";
 
 export const metadata: Metadata = {
-  title: "Resume Platform Overview and Pricing Comparison",
+  title: "Resume Analysis Features and Pricing",
   description:
-    "Compare WebResume.tech features, ATS resume analysis modules, recruiter suite capabilities, and Pro vs Premium pricing before choosing a plan.",
+    "Compare ATS analysis features, recruiter tools, and Pro vs Premium pricing before choosing your plan.",
   alternates: {
     canonical: "/overview",
   },
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     "recruiter suite features",
   ],
   openGraph: {
-    title: "Resume Platform Overview and Pricing Comparison",
+    title: "Resume Analysis Features and Pricing",
     description:
       "Explore ATS analysis, recruiter tools, and Pro/Premium plan differences on WebResume.tech.",
     url: "/overview",

@@ -37,6 +37,8 @@ Open http://localhost:3000.
 - CUSTOM_FINETUNE_ENABLED (optional, default true)
 - FINETUNE_DATA_CAPTURE (optional, set false to disable sample logging)
 - NEXT_PUBLIC_AUTH_EMAIL_REDIRECT_URL (optional, default: https://www.webresume.tech/login)
+- NEXT_PUBLIC_GA_MEASUREMENT_ID (optional, enables Google Analytics tracking)
+- NEXT_PUBLIC_FB_PIXEL_ID (optional, enables Facebook Pixel tracking)
 - RAZORPAY_KEY_ID
 - RAZORPAY_KEY_SECRET
 
@@ -52,5 +54,12 @@ Open http://localhost:3000.
 - Normal analysis and HR batch scoring use multi-query hybrid retrieval (vector + lexical blending) with historical memory fallback.
 - Fine-tune samples are captured server-side and can be exported from `GET /api/fine-tune/export?format=jsonl`.
 - Legacy buy routes redirect to /billing.
+
+### SEO operations docs
+
+- `docs/seo/link-building-strategy.md`
+- `docs/seo/dns-mail-records.md`
+- `docs/seo/http2-and-pagespeed.md`
+- `docs/seo/analytics-and-pixel-setup.md`
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.

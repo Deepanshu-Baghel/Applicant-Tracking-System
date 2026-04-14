@@ -4,12 +4,10 @@ import ScoreChart from "../components/ScoreChart";
 import SkillsChart from "../components/SkillsChart";
 
 const AdminDashboard = () => {
-  const [history, setHistory] = useState([]);
   const [selectedRun, setSelectedRun] = useState(null);
 
   useEffect(() => {
     getShortlists().then((res) => {
-      setHistory(res.data);
       if (res.data.length) {
         setSelectedRun(res.data[res.data.length - 1]);
       }

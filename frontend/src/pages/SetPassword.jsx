@@ -26,7 +26,7 @@ const SetPassword = () => {
       setError("");
 
       setTimeout(() => navigate("/login"), 2000);
-    } catch (err) {
+    } catch {
       setError("Invalid email or password already set");
     }
   };
@@ -52,8 +52,8 @@ const SetPassword = () => {
 
       <button onClick={handleSetPassword}>Set Password</button>
 
-      {message && <p style={{ color: "green" }}>{message}</p>}
-      {error && <p style={{ color: "red" }}>{error}</p>}
+      {message && <p className="status-message success">{message}</p>}
+      {error && <p className="status-message error">{error}</p>}
     </div>
   );
 };

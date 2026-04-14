@@ -1500,16 +1500,17 @@ export default function AnalysisPage() {
                   <span className="font-semibold text-primary-100">{salaryConfidence ?? "Medium"} ({confidenceBandPercent}%)</span>
                 </div>
                 <div className="h-2 rounded-full bg-white/15 overflow-hidden">
-                  <div
+                  <progress
+                    max={100}
+                    value={confidenceBandPercent}
                     className={clsx(
-                      "h-full transition-all",
+                      "h-2 w-full rounded-full",
                       salaryConfidence === "High"
-                        ? "bg-green-400"
+                        ? "accent-green-400"
                         : salaryConfidence === "Low"
-                          ? "bg-rose-400"
-                          : "bg-amber-400"
+                          ? "accent-rose-400"
+                          : "accent-amber-400"
                     )}
-                    style={{ width: `${confidenceBandPercent}%` }}
                   />
                 </div>
                 <div className="space-y-2">
@@ -2022,7 +2023,11 @@ export default function AnalysisPage() {
                           <span className="text-xs font-semibold text-primary-600">{track.readiness_score}%</span>
                         </div>
                         <div className="h-2 rounded-full bg-border overflow-hidden">
-                          <div className="h-full bg-primary-500" style={{ width: `${track.readiness_score}%` }} />
+                          <progress
+                            max={100}
+                            value={track.readiness_score}
+                            className="h-2 w-full rounded-full accent-primary-500"
+                          />
                         </div>
                         <div className="space-y-1">
                           {track.evidence.slice(0, 2).map((evidence, index) => (
@@ -2135,17 +2140,18 @@ export default function AnalysisPage() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2 items-end min-h-[160px]">
+                  <div className="space-y-3">
                     {conversionTrend.map((point, index) => (
-                      <div key={`${point.label}-${index}`} className="flex flex-col items-center gap-2">
-                        <div className="w-full max-w-[44px] h-[120px] flex items-end">
-                          <div
-                            className="w-full rounded-t-md bg-primary-500/80"
-                            style={{ height: `${Math.max(10, Math.round(point.probability * 1.1))}px` }}
-                          />
+                      <div key={`${point.label}-${index}`} className="rounded-lg border border-border/60 bg-card/40 p-3">
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <p className="text-xs text-muted">{point.label}</p>
+                          <p className="text-xs font-semibold text-foreground">{point.probability}%</p>
                         </div>
-                        <p className="text-[10px] text-muted text-center">{point.label}</p>
-                        <p className="text-[10px] font-semibold text-foreground">{point.probability}%</p>
+                        <progress
+                          max={100}
+                          value={point.probability}
+                          className="h-2 w-full rounded-full accent-primary-500"
+                        />
                       </div>
                     ))}
                   </div>

@@ -639,7 +639,11 @@ export default function HrToolPage() {
                   <span>{progress}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-border overflow-hidden">
-                  <div className="h-full bg-primary-500 transition-all" style={{ width: `${progress}%` }} />
+                  <progress
+                    max={100}
+                    value={progress}
+                    className="h-2 w-full rounded-full accent-primary-500"
+                  />
                 </div>
               </div>
             )}
@@ -672,19 +676,18 @@ export default function HrToolPage() {
               <div className="grid lg:grid-cols-3 gap-6">
                 <div className="rounded-xl border border-border p-4 bg-card/70">
                   <h3 className="text-sm font-semibold mb-4">JD Match Distribution</h3>
-                  <div className="h-44 flex items-end gap-3">
+                  <div className="space-y-3">
                     {matchDistribution.map((bin) => (
-                      <div key={bin.label} className="flex-1 flex flex-col items-center gap-2">
-                        <div className="w-full h-32 flex items-end">
-                          <div
-                            className="w-full rounded-t-md bg-primary-500/80"
-                            style={{ height: `${Math.max(10, Math.round(bin.percent * 1.2))}px` }}
-                          />
+                      <div key={bin.label} className="rounded-lg border border-border/60 bg-card/40 p-3">
+                        <div className="flex items-center justify-between gap-3 mb-1">
+                          <div className="text-[10px] text-muted">{bin.label}</div>
+                          <div className="font-semibold text-foreground text-[10px]">{bin.count}</div>
                         </div>
-                        <div className="text-[10px] text-muted text-center">
-                          <div>{bin.label}</div>
-                          <div className="font-semibold text-foreground">{bin.count}</div>
-                        </div>
+                        <progress
+                          max={100}
+                          value={Math.round(bin.percent)}
+                          className="h-2 w-full rounded-full accent-primary-500"
+                        />
                       </div>
                     ))}
                   </div>
@@ -700,7 +703,11 @@ export default function HrToolPage() {
                           <span className="font-semibold text-foreground">{candidate.jdMatchScore}%</span>
                         </div>
                         <div className="h-2 rounded-full bg-border overflow-hidden">
-                          <div className="h-full bg-primary-500" style={{ width: `${candidate.jdMatchScore}%` }} />
+                          <progress
+                            max={100}
+                            value={candidate.jdMatchScore}
+                            className="h-2 w-full rounded-full accent-primary-500"
+                          />
                         </div>
                       </div>
                     ))}
@@ -720,7 +727,11 @@ export default function HrToolPage() {
                               <span className="font-semibold text-foreground">{item.count}</span>
                             </div>
                             <div className="h-2 rounded-full bg-border overflow-hidden">
-                              <div className="h-full bg-amber-500" style={{ width: `${Math.max(8, width)}%` }} />
+                              <progress
+                                max={100}
+                                value={Math.max(8, width)}
+                                className="h-2 w-full rounded-full accent-amber-500"
+                              />
                             </div>
                           </div>
                         );
@@ -890,16 +901,17 @@ export default function HrToolPage() {
                               </span>
                             </div>
                             <div className="h-2 rounded-full bg-border overflow-hidden">
-                              <div
+                              <progress
+                                max={100}
+                                value={item.probability}
                                 className={clsx(
-                                  "h-full",
+                                  "h-2 w-full rounded-full",
                                   item.band === "High"
-                                    ? "bg-green-500"
+                                    ? "accent-green-500"
                                     : item.band === "Medium"
-                                      ? "bg-amber-500"
-                                      : "bg-rose-500"
+                                      ? "accent-amber-500"
+                                      : "accent-rose-500"
                                 )}
-                                style={{ width: `${item.probability}%` }}
                               />
                             </div>
                           </div>
