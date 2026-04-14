@@ -61,5 +61,7 @@ Open http://localhost:3000.
 - `docs/seo/dns-mail-records.md`
 - `docs/seo/http2-and-pagespeed.md`
 - `docs/seo/analytics-and-pixel-setup.md`
+- `docs/seo/canonical-redirect-deployment.md`
+- `docs/seo/search-console-checklist.md`
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
